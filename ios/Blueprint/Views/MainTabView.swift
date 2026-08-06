@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @Environment(AppState.self) private var appState
+    @Environment(StoreManager.self) private var store
 
     var body: some View {
         @Bindable var state = appState
@@ -33,6 +34,8 @@ struct MainTabView: View {
         }
         .fullScreenCover(isPresented: $state.showPaywall) {
             PaywallView()
+                .environment(appState)
+                .environment(store)
         }
     }
 }

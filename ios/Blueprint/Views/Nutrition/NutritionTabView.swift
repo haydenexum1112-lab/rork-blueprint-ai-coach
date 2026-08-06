@@ -3,6 +3,7 @@ import SwiftUI
 /// Nutrition tab — weekly meal plan gated behind a monthly add-on subscription.
 struct NutritionTabView: View {
     @Environment(AppState.self) private var appState
+    @Environment(StoreManager.self) private var store
 
     @State private var selectedDayIndex: Int = 0
     @State private var showSurvey: Bool = false
@@ -29,6 +30,8 @@ struct NutritionTabView: View {
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
+                    .environment(appState)
+                    .environment(store)
             }
         }
     }

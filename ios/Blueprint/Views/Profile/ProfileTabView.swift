@@ -293,12 +293,11 @@ struct ProfileTabView: View {
                 .foregroundStyle(appState.subscription.isActive ? Theme.accent : Theme.textSecondary)
 
             if appState.subscription.isActive {
-                Button("Cancel subscription") {
-                    Haptics.warning()
-                    appState.cancelSubscription()
+                Link(destination: URL(string: "https://apps.apple.com/account/subscriptions")!) {
+                    Label("Manage subscription", systemImage: "arrow.up.right.square")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.danger)
                 }
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Theme.danger)
             } else {
                 Button {
                     Haptics.impact()

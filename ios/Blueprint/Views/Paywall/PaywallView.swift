@@ -1,9 +1,11 @@
 import SwiftUI
+import StoreKit
 
 /// Unified paywall — "Choose Your Plan" with 3 tiers and 7-day free trial.
-/// Purchases are local app state for now; wire StoreKit/RevenueCat before shipping.
+/// Wired to StoreKit 2 via StoreManager for real in-app purchases.
 struct PaywallView: View {
     @Environment(AppState.self) private var appState
+    @Environment(StoreManager.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     private enum BillingPeriod: String, CaseIterable, Identifiable {
@@ -16,7 +18,12 @@ struct PaywallView: View {
     @State private var billing: BillingPeriod = .annual
     @State private var appeared: Bool = false
 
+    /// Live price from StoreKit, falling back to hardcoded display if products not yet fetched.
     private var priceForTier: String {
+        let annual = billing == .annual
+        if let price = store.priceString(for: selectedTier, annual: annual) {
+            return annual ? "\(price)/yr" : "\(price)/mo"
+        }
         switch (selectedTier, billing) {
         case (.workouts, .monthly): return "$12.99/mo"
         case (.workouts, .annual): return "$79/yr"
@@ -100,20 +107,44 @@ struct PaywallView: View {
 
                 VStack(spacing: 12) {
                     Button {
-                        Haptics.success()
-                        appState.startTrial(tier: selectedTier)
-                        dismiss()
+                        Task {
+                            Haptics.success()
+                            let success = await store.purchase(
+                                tier: selectedTier,
+                                annual: billing == .annual
+                            )
+                            if success {
+                                appState.syncFromStoreKit(store)
+                                dismiss()
+                            }
+                        }
                     } label: {
-                        Text("Start 7-day free trial")
-                            .frame(maxWidth: .infinity)
+                        Group {
+                            if store.isPurchasing {
+                            ProgressView()
+                                .tint(.white)
+                            } else {
+                            Text("Start 7-day free trial")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryButtonStyle())
+                    .disabled(store.isPurchasing || store.isLoading)
 
                     Button("Restore purchases") {
-                        Haptics.impact(.light)
+                        Task {
+                            Haptics.impact(.light)
+                            let success = await store.restore()
+                            if success {
+                                appState.syncFromStoreKit(store)
+                                dismiss()
+                            }
+                        }
                     }
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
+                    .disabled(store.isPurchasing)
 
                     Text("Free for 7 days, then \(priceForTier). Cancel anytime in Settings.")
                         .font(.system(size: 11))
@@ -135,6 +166,14 @@ struct PaywallView: View {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.1)) {
                 appeared = true
             }
+        }
+        .alert("Purchase Error", isPresented: .init(
+            get: { store.errorMessage != nil },
+            set: { if !$0 { store.clearError() } }
+        )) {
+            Button("OK") { store.clearError() }
+        } message: {
+            Text(store.errorMessage ?? "")
         }
     }
 
@@ -251,6 +290,10 @@ struct PaywallView: View {
     }
 
     private func tierPriceText(_ tier: SubscriptionTier) -> String {
+        let annual = billing == .annual
+        if let price = store.priceString(for: tier, annual: annual) {
+            return annual ? "\(price)/yr" : "\(price)/mo"
+        }
         switch (tier, billing) {
         case (.workouts, .monthly): return "$12.99/mo"
         case (.workouts, .annual): return "$79/yr"

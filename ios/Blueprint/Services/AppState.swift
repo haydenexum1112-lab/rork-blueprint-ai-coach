@@ -600,7 +600,32 @@ final class AppState {
         NotificationService.shared.rescheduleAll(appState: self)
     }
 
-    // MARK: - Subscription (local state; wire StoreKit/RevenueCat for production)
+    // MARK: - Subscription (StoreKit 2 backed, with local fallback)
+
+    /// Syncs subscription state from StoreKit 2 via StoreManager.
+    /// Called on app launch and after successful purchases/restores.
+    func syncFromStoreKit(_ store: StoreManager) {
+        if let tier = store.currentTier {
+            if store.isInTrial {
+                let expires = store.expirationDate ?? Date().addingTimeInterval(7 * 86400)
+                subscription = .trial(tier: tier, expires: expires)
+            } else {
+                subscription = .subscribed(tier: tier)
+            }
+        } else {
+            // No active StoreKit entitlement — only keep local trial if still valid
+            if case .trial(_, let expires) = subscription, expires > Date() {
+                // Local trial still valid, keep it
+            } else {
+                subscription = .free
+            }
+        }
+        persist(subscription, to: "subscription.json")
+        if var current = profile {
+            current.subscriptionStatus = subscription
+            saveProfile(current)
+        }
+    }
 
     func startTrial(tier: SubscriptionTier = .everything) {
         let expires = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
