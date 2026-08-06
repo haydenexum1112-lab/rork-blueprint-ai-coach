@@ -1,0 +1,15 @@
+{
+  "$schema": "https://rork.com/schema/rork.json",
+  "apps": [
+    {
+      "name": "Blueprint",
+      "path": "ios",
+      "framework": "swift"
+    },
+    {
+      "name": "PhyziqAi",
+      "path": "web",
+      "framework": "web"
+    }
+  ]
+}
