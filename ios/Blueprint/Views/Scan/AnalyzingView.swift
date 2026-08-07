@@ -11,7 +11,7 @@ struct AnalyzingView: View {
         "Assessing symmetry & balance…",
         "Measuring the gap to your goal…",
         "Engineering your training split…",
-        "Finalizing your blueprint…",
+        "Finalizing your plan…",
     ]
 
     var body: some View {

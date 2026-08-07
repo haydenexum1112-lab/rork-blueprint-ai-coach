@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The Blueprint tab. Guides the user through goal setup → baseline scan,
+/// The PhyziqAi tab. Guides the user through goal setup → baseline scan,
 /// then becomes the weekly training plan.
 struct HomeView: View {
     @Environment(AppState.self) private var appState

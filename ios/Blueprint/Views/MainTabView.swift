@@ -9,7 +9,7 @@ struct MainTabView: View {
         TabView {
             HomeView()
                 .tabItem {
-                    Label("Blueprint", systemImage: "square.grid.2x2.fill")
+                    Label("PhyziqAi", systemImage: "square.grid.2x2.fill")
                 }
 
             ProgressTabView()

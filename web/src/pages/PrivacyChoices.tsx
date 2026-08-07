@@ -14,7 +14,7 @@ const PrivacyChoices = () => {
                 <rect x="14" y="14" width="7" height="7" rx="1" />
               </svg>
             </div>
-            <span className="text-lg font-black tracking-tight">Blueprint</span>
+            <span className="text-lg font-black tracking-tight">PhyziqAi</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-semibold text-slate-600">
             <Link to="/support" className="hover:text-[#00B2E0] transition-colors">Support</Link>
@@ -37,7 +37,7 @@ const PrivacyChoices = () => {
             </p>
             <p className="text-slate-600">
               To request a copy of any server-side account data (such as your auth profile), email
-              <a href="mailto:support@blueprint.app?subject=Data Access Request" className="text-[#00B2E0] font-semibold"> support@blueprint.app</a>
+              <a href="mailto:support@phyziqai.app?subject=Data Access Request" className="text-[#00B2E0] font-semibold"> support@phyziqai.app</a>
               with "Data Access Request" in the subject.
             </p>
           </section>
@@ -45,10 +45,10 @@ const PrivacyChoices = () => {
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">Delete Your Data</h2>
             <div className="space-y-3 text-slate-600">
-              <p><strong>Physique photos, food photos, workout logs, and profile:</strong> Delete the Blueprint app from your iPhone. This immediately removes all locally stored data.</p>
-              <p><strong>iCloud backup:</strong> Open Blueprint → Profile → Privacy & data → tap "Delete cloud backup." This removes all encrypted scan metadata from your iCloud account. Your on-device data is not affected.</p>
-              <p><strong>Server-side account data:</strong> Email <a href="mailto:support@blueprint.app?subject=Data Deletion Request" className="text-[#00B2E0] font-semibold">support@blueprint.app</a> with "Data Deletion Request" in the subject. We will permanently delete your account and associated server-side records within 30 days.</p>
-              <p><strong>Apple Health data:</strong> Go to the Health app → Summary → Blueprint → scroll to "Data Sources & Access" → tap "Delete All Recorded Data" or revoke access entirely.</p>
+              <p><strong>Physique photos, food photos, workout logs, and profile:</strong> Delete the PhyziqAi app from your iPhone. This immediately removes all locally stored data.</p>
+              <p><strong>iCloud backup:</strong> Open PhyziqAi → Profile → Privacy & data → tap "Delete cloud backup." This removes all encrypted scan metadata from your iCloud account. Your on-device data is not affected.</p>
+              <p><strong>Server-side account data:</strong> Email <a href="mailto:support@phyziqai.app?subject=Data Deletion Request" className="text-[#00B2E0] font-semibold">support@phyziqai.app</a> with "Data Deletion Request" in the subject. We will permanently delete your account and associated server-side records within 30 days.</p>
+              <p><strong>Apple Health data:</strong> Go to the Health app → Summary → PhyziqAi → scroll to "Data Sources & Access" → tap "Delete All Recorded Data" or revoke access entirely.</p>
             </div>
           </section>
 
@@ -56,7 +56,7 @@ const PrivacyChoices = () => {
             <h2 className="mb-3 text-xl font-bold">Export Your Data</h2>
             <p className="mb-3 text-slate-600">
               To export your account data, email
-              <a href="mailto:support@blueprint.app?subject=Data Export Request" className="text-[#00B2E0] font-semibold"> support@blueprint.app</a>
+              <a href="mailto:support@phyziqai.app?subject=Data Export Request" className="text-[#00B2E0] font-semibold"> support@phyziqai.app</a>
               with "Data Export Request" in the subject. We will provide your server-side data in a portable format within 30 days.
             </p>
             <p className="text-slate-600">
@@ -69,15 +69,15 @@ const PrivacyChoices = () => {
             <h2 className="mb-3 text-xl font-bold">Revoke Permissions</h2>
             <ul className="space-y-3 text-slate-600">
               <li>
-                <strong>Camera:</strong> Settings → Blueprint → Camera → turn off. Blueprint will no longer
+                <strong>Camera:</strong> Settings → PhyziqAi → Camera → turn off. PhyziqAi will no longer
                 be able to capture scan or food photos.
               </li>
               <li>
-                <strong>Apple Health:</strong> Open Blueprint → Profile → Apple Health → tap "Disconnect."
-                Or go to Settings → Privacy & Security → Health → Blueprint → turn off all access.
+                <strong>Apple Health:</strong> Open PhyziqAi → Profile → Apple Health → tap "Disconnect."
+                Or go to Settings → Privacy & Security → Health → PhyziqAi → turn off all access.
               </li>
               <li>
-                <strong>iCloud Backup:</strong> Open Blueprint → Profile → Privacy & data → toggle off
+                <strong>iCloud Backup:</strong> Open PhyziqAi → Profile → Privacy & data → toggle off
                 "iCloud backup." Then tap "Delete cloud backup" to remove existing backed-up data.
               </li>
               <li>
@@ -90,7 +90,7 @@ const PrivacyChoices = () => {
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">Opt Out of AI Photo Analysis</h2>
             <p className="text-slate-600">
-              If you prefer not to have your photos processed by AI, you can still use Blueprint's manual
+              If you prefer not to have your photos processed by AI, you can still use PhyziqAi's manual
               workout logging and food entry features without triggering any AI analysis. Simply avoid the
               scan, food photo, and barcode features.
             </p>
@@ -99,7 +99,7 @@ const PrivacyChoices = () => {
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">Verification</h2>
             <p className="text-slate-600">
-              When submitting a data request, please include the email address associated with your Blueprint
+              When submitting a data request, please include the email address associated with your PhyziqAi
               account so we can verify your identity. We may ask for additional confirmation for sensitive
               requests.
             </p>
@@ -109,7 +109,7 @@ const PrivacyChoices = () => {
 
       <footer className="border-t border-slate-200/60 bg-white py-8">
         <div className="mx-auto max-w-4xl px-6 text-center text-sm text-slate-400">
-          <p>&copy; 2026 Blueprint. All rights reserved.</p>
+          <p>&copy; 2026 PhyziqAi. All rights reserved.</p>
         </div>
       </footer>
     </div>

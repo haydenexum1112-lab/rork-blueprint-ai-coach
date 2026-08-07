@@ -14,7 +14,7 @@ nonisolated enum HealthKitError: LocalizedError {
         case .unavailable:
             return "Apple Health isn't available on this device."
         case .notAuthorized:
-            return "Blueprint doesn't have permission to read that data from Apple Health."
+            return "PhyziqAi doesn't have permission to read that data from Apple Health."
         case .noData:
             return "No data found in Apple Health for that category."
         case .queryFailed(let message):

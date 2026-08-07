@@ -82,7 +82,7 @@ struct ProgressTabView: View {
             Text("No scans yet")
                 .font(.displayFont(24))
                 .foregroundStyle(Theme.textPrimary)
-            Text("Complete your baseline scan in the Blueprint tab to start tracking.")
+            Text("Complete your baseline scan in the PhyziqAi tab to start tracking.")
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)

@@ -14,7 +14,7 @@ const Privacy = () => {
                 <rect x="14" y="14" width="7" height="7" rx="1" />
               </svg>
             </div>
-            <span className="text-lg font-black tracking-tight">Blueprint</span>
+            <span className="text-lg font-black tracking-tight">PhyziqAi</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-semibold text-slate-600">
             <Link to="/support" className="hover:text-[#00B2E0] transition-colors">Support</Link>
@@ -32,9 +32,9 @@ const Privacy = () => {
           <section>
             <h2 className="mb-3 text-xl font-bold text-[#1a1a1a]">Who We Are</h2>
             <p>
-              Blueprint is an AI physique coaching app for iOS. This policy explains what data we collect,
+              PhyziqAi is an AI physique coaching app for iOS. This policy explains what data we collect,
               why we collect it, and your rights regarding that data. For any privacy questions, email
-              <a href="mailto:support@blueprint.app" className="text-[#00B2E0] font-semibold"> support@blueprint.app</a>.
+              <a href="mailto:support@phyziqai.app" className="text-[#00B2E0] font-semibold"> support@phyziqai.app</a>.
             </p>
           </section>
 
@@ -63,7 +63,7 @@ const Privacy = () => {
               <div>
                 <h3 className="font-semibold mb-1">iCloud Backup (Opt-in)</h3>
                 <p className="text-sm text-slate-600">
-                  Blueprint offers an optional iCloud backup for your scan analysis metadata. When enabled,
+                  PhyziqAi offers an optional iCloud backup for your scan analysis metadata. When enabled,
                   your physique scores, dates, and training plans are encrypted with a device-generated key
                   stored in your Keychain and synced to your iCloud account. Physique photos are never
                   included in cloud backup — they remain on-device only. You can disable iCloud backup,
@@ -96,7 +96,7 @@ const Privacy = () => {
               <div>
                 <h3 className="font-semibold mb-1">Apple Health Data</h3>
                 <p className="text-sm text-slate-600">
-                  With your permission, Blueprint reads body weight, workouts, steps, and active energy
+                  With your permission, PhyziqAi reads body weight, workouts, steps, and active energy
                   from Apple Health, and writes logged nutrition data (calories and macros) to Apple Health.
                   This data stays on your device and in your Health app — it is not uploaded to our servers.
                 </p>
@@ -104,14 +104,14 @@ const Privacy = () => {
               <div>
                 <h3 className="font-semibold mb-1">Camera Access</h3>
                 <p className="text-sm text-slate-600">
-                  Blueprint uses the camera to capture physique scan photos and food photos. Camera access
-                  is requested at the point of use and can be revoked at any time in Settings → Blueprint → Camera.
+                  PhyziqAi uses the camera to capture physique scan photos and food photos. Camera access
+                  is requested at the point of use and can be revoked at any time in Settings → PhyziqAi → Camera.
                 </p>
               </div>
               <div>
                 <h3 className="font-semibold mb-1">Subscription Data</h3>
                 <p className="text-sm text-slate-600">
-                  If you subscribe to Blueprint Pro or the Nutrition add-on, purchase and subscription
+                  If you subscribe to PhyziqAi Pro or the Nutrition add-on, purchase and subscription
                   status are managed by Apple's StoreKit framework. We do not store your payment information.
                 </p>
               </div>
@@ -121,7 +121,7 @@ const Privacy = () => {
           <section>
             <h2 className="mb-3 text-xl font-bold text-[#1a1a1a]">AI Processing</h2>
             <p>
-              Blueprint uses Anthropic's Claude AI to analyze your physique photos, generate training plans,
+              PhyziqAi uses Anthropic's Claude AI to analyze your physique photos, generate training plans,
               identify food from photos, and create nutrition plans. When you use these features, the
               relevant photos and context are sent to Anthropic's servers for processing. Anthropic processes
               this data according to their own privacy policy and retention terms. We instruct the AI not to
@@ -179,7 +179,7 @@ const Privacy = () => {
           <section>
             <h2 className="mb-3 text-xl font-bold text-[#1a1a1a]">Children's Privacy</h2>
             <p>
-              Blueprint is designed for adults aged 18 and older. The app includes a hard age gate during
+              PhyziqAi is designed for adults aged 18 and older. The app includes a hard age gate during
               onboarding. We do not knowingly collect data from anyone under 18. If you believe a minor has
               used the app, please contact us so we can remove any associated data.
             </p>
@@ -189,7 +189,7 @@ const Privacy = () => {
             <h2 className="mb-3 text-xl font-bold text-[#1a1a1a]">International Data Transfer</h2>
             <p>
               Since AI processing uses Anthropic's cloud infrastructure, your photos and related data may be
-              processed in the United States or other regions where Anthropic operates. By using Blueprint's
+              processed in the United States or other regions where Anthropic operates. By using PhyziqAi's
               AI features, you consent to this transfer.
             </p>
           </section>
@@ -207,7 +207,7 @@ const Privacy = () => {
             <h2 className="mb-3 text-xl font-bold text-[#1a1a1a]">Contact</h2>
             <p>
               For any privacy questions or data requests, email
-              <a href="mailto:support@blueprint.app" className="text-[#00B2E0] font-semibold"> support@blueprint.app</a>.
+              <a href="mailto:support@phyziqai.app" className="text-[#00B2E0] font-semibold"> support@phyziqai.app</a>.
             </p>
           </section>
         </div>
@@ -215,7 +215,7 @@ const Privacy = () => {
 
       <footer className="border-t border-slate-200/60 bg-white py-8">
         <div className="mx-auto max-w-4xl px-6 text-center text-sm text-slate-400">
-          <p>&copy; 2026 Blueprint. All rights reserved.</p>
+          <p>&copy; 2026 PhyziqAi. All rights reserved.</p>
         </div>
       </footer>
     </div>

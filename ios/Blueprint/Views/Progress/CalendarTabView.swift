@@ -238,7 +238,7 @@ struct CalendarTabView: View {
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "Recent workouts", icon: "clock.arrow.circlepath")
             if recent.isEmpty {
-                Text("No workouts logged yet. Open a day in the Blueprint tab and log your weights.")
+                Text("No workouts logged yet. Open a day in the PhyziqAi tab and log your weights.")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.textSecondary)
                     .padding(.vertical, 12)

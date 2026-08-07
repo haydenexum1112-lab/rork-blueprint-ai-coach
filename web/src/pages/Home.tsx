@@ -15,7 +15,7 @@ const Home = () => {
                 <rect x="14" y="14" width="7" height="7" rx="1" />
               </svg>
             </div>
-            <span className="text-lg font-black tracking-tight">Blueprint</span>
+            <span className="text-lg font-black tracking-tight">PhyziqAi</span>
           </div>
           <nav className="flex items-center gap-6 text-sm font-semibold text-slate-600">
             <Link to="/support" className="hover:text-[#00B2E0] transition-colors">Support</Link>
@@ -34,7 +34,7 @@ const Home = () => {
             <span className="text-[#00B2E0]">Close it.</span>
           </h1>
           <p className="mx-auto mb-12 max-w-xl text-lg text-slate-600 leading-relaxed">
-            Blueprint scans your physique, compares it to your goal, and builds a personalized
+            PhyziqAi scans your physique, compares it to your goal, and builds a personalized
             week-by-week training plan — with nutrition tracking, food scanning, and Apple Health
             integration.
           </p>
@@ -98,7 +98,7 @@ const Home = () => {
 
       <footer className="border-t border-slate-200/60 bg-white py-8">
         <div className="mx-auto max-w-4xl px-6 text-center text-sm text-slate-400">
-          <p>&copy; 2026 Blueprint. All rights reserved.</p>
+          <p>&copy; 2026 PhyziqAi. All rights reserved.</p>
         </div>
       </footer>
     </div>

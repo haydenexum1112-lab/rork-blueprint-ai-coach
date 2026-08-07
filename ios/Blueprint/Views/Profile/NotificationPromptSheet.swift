@@ -26,7 +26,7 @@ struct NotificationPromptSheet: View {
                         Text("Stay on track")
                             .font(.displayFont(24))
                             .foregroundStyle(Theme.textPrimary)
-                        Text("Blueprint can nudge you at the right moments to keep your training, nutrition, and progress on autopilot. Pick the ones you want.")
+                        Text("PhyziqAi can nudge you at the right moments to keep your training, nutrition, and progress on autopilot. Pick the ones you want.")
                             .font(.system(size: 15))
                             .foregroundStyle(Theme.textSecondary)
                             .multilineTextAlignment(.center)

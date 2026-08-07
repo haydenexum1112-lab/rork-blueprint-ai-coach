@@ -153,7 +153,7 @@ struct HealthScreenerView: View {
                 Text("You're cleared to train")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Theme.success)
-                Text("No health concerns flagged. Let's build your blueprint.")
+                Text("No health concerns flagged. Let's build your plan.")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -190,7 +190,7 @@ struct HealthScreenerView: View {
                     .font(.displayFont(24))
                     .foregroundStyle(Theme.textPrimary)
 
-                Text("You answered yes to one or more health questions. We strongly recommend consulting a physician before starting any exercise program. Bring your Blueprint plan to the conversation so they can advise on modifications.")
+                Text("You answered yes to one or more health questions. We strongly recommend consulting a physician before starting any exercise program. Bring your PhyziqAi plan to the conversation so they can advise on modifications.")
                     .font(.system(size: 15))
                     .foregroundStyle(Theme.textSecondary)
                     .lineSpacing(4)

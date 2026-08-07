@@ -14,7 +14,7 @@ const Support = () => {
                 <rect x="14" y="14" width="7" height="7" rx="1" />
               </svg>
             </div>
-            <span className="text-lg font-black tracking-tight">Blueprint</span>
+            <span className="text-lg font-black tracking-tight">PhyziqAi</span>
           </Link>
           <nav className="flex items-center gap-6 text-sm font-semibold text-slate-600">
             <Link to="/support" className="text-[#00B2E0]">Support</Link>
@@ -32,7 +32,7 @@ const Support = () => {
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">Contact Us</h2>
             <p className="mb-2 text-slate-600">For any questions, bug reports, or feedback, email us at:</p>
-            <a href="mailto:support@blueprint.app" className="font-bold text-[#00B2E0]">support@blueprint.app</a>
+            <a href="mailto:support@phyziqai.app" className="font-bold text-[#00B2E0]">support@phyziqai.app</a>
             <p className="mt-3 text-sm text-slate-500">We aim to respond within 48 hours.</p>
           </section>
 
@@ -50,12 +50,12 @@ const Support = () => {
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">Subscriptions & Billing</h2>
             <p className="mb-3 text-slate-600">
-              Blueprint offers three plans: Workouts ($12.99/mo or $79/yr), Nutrition ($7.99/mo or $49/yr),
+              PhyziqAi offers three plans: Workouts ($12.99/mo or $79/yr), Nutrition ($7.99/mo or $49/yr),
               and Everything ($16.99/mo or $99/yr — best value). All plans start with a 7-day free trial.
             </p>
             <p className="text-slate-600">
               To manage or cancel a subscription: open the Settings app on your iPhone → tap your name →
-              tap Subscriptions → select Blueprint. You can also request billing help by emailing us.
+              tap Subscriptions → select PhyziqAi. You can also request billing help by emailing us.
             </p>
           </section>
 
@@ -76,20 +76,20 @@ const Support = () => {
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">Health Screener (PAR-Q)</h2>
             <p className="mb-3 text-slate-600">
-              Before your first training plan, Blueprint asks you to complete a 7-question health
+              Before your first training plan, PhyziqAi asks you to complete a 7-question health
               questionnaire (the PAR-Q, used by fitness professionals worldwide). If you answer yes to
               any question, we recommend consulting a physician before starting.
             </p>
             <p className="text-slate-600">
               You can still proceed anyway, but we strongly encourage you to check with your doctor first
-              and bring your Blueprint plan to that conversation.
+              and bring your PhyziqAi plan to that conversation.
             </p>
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">iCloud Backup</h2>
             <p className="mb-3 text-slate-600">
-              Blueprint offers an optional iCloud backup for your scan analysis metadata (scores, dates,
+              PhyziqAi offers an optional iCloud backup for your scan analysis metadata (scores, dates,
               and training plans). When enabled, this data is encrypted with a device-generated key and
               stored in your iCloud account. Physique photos are never included in cloud backup.
             </p>
@@ -115,7 +115,7 @@ const Support = () => {
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">Troubleshooting</h2>
             <ul className="space-y-3 text-slate-600">
-              <li><strong>Camera not working?</strong> Go to Settings → Blueprint → Camera and make sure it's enabled.</li>
+              <li><strong>Camera not working?</strong> Go to Settings → PhyziqAi → Camera and make sure it's enabled.</li>
               <li><strong>Apple Health not syncing?</strong> Go to Profile → Apple Health and tap "Connect" again. Confirm permissions in the Health app.</li>
               <li><strong>AI scan failed?</strong> Ensure good lighting, wear fitted clothing, and capture front, side, and back angles from head to toe.</li>
               <li><strong>Workout plan locked?</strong> Day 1 is free with the 7-day trial. Choose a plan to unlock your full weekly schedule.</li>
@@ -126,7 +126,7 @@ const Support = () => {
 
       <footer className="border-t border-slate-200/60 bg-white py-8">
         <div className="mx-auto max-w-4xl px-6 text-center text-sm text-slate-400">
-          <p>&copy; 2026 Blueprint. All rights reserved.</p>
+          <p>&copy; 2026 PhyziqAi. All rights reserved.</p>
         </div>
       </footer>
     </div>

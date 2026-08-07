@@ -1,14 +1,14 @@
 import Foundation
 import StoreKit
 
-/// Product identifiers for Blueprint's three subscription tiers (monthly + annual).
+/// Product identifiers for PhyziqAi's three subscription tiers (monthly + annual).
 nonisolated enum ProductID {
-    static let workoutsMonthly  = "app.rork.blueprint.workouts.monthly"
-    static let workoutsAnnual   = "app.rork.blueprint.workouts.annual"
-    static let nutritionMonthly = "app.rork.blueprint.nutrition.monthly"
-    static let nutritionAnnual  = "app.rork.blueprint.nutrition.annual"
-    static let everythingMonthly = "app.rork.blueprint.everything.monthly"
-    static let everythingAnnual  = "app.rork.blueprint.everything.annual"
+    static let workoutsMonthly  = "app.rork.phyziqai.workouts.monthly"
+    static let workoutsAnnual   = "app.rork.phyziqai.workouts.annual"
+    static let nutritionMonthly = "app.rork.phyziqai.nutrition.monthly"
+    static let nutritionAnnual  = "app.rork.phyziqai.nutrition.annual"
+    static let everythingMonthly = "app.rork.phyziqai.everything.monthly"
+    static let everythingAnnual  = "app.rork.phyziqai.everything.annual"
 
     static let all: Set<String> = [
         workoutsMonthly, workoutsAnnual,
@@ -18,9 +18,9 @@ nonisolated enum ProductID {
 
     /// Maps a product ID to its subscription tier.
     static func tier(for id: String) -> SubscriptionTier? {
-        if id.hasPrefix("app.rork.blueprint.workouts") { return .workouts }
-        if id.hasPrefix("app.rork.blueprint.nutrition") { return .nutrition }
-        if id.hasPrefix("app.rork.blueprint.everything") { return .everything }
+        if id.hasPrefix("app.rork.phyziqai.workouts") { return .workouts }
+        if id.hasPrefix("app.rork.phyziqai.nutrition") { return .nutrition }
+        if id.hasPrefix("app.rork.phyziqai.everything") { return .everything }
         return nil
     }
 

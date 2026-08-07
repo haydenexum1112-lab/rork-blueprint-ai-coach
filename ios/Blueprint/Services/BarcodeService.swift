@@ -83,7 +83,7 @@ nonisolated enum BarcodeService {
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("Blueprint/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
+        request.setValue("PhyziqAi/1.0 (iOS)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 30
 
         let data: Data

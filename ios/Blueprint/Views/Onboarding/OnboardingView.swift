@@ -71,12 +71,12 @@ struct OnboardingView: View {
                 OnboardingSlide(
                     icon: "scope",
                     title: "Set the\ntarget.",
-                    subtitle: "Upload photos of the physique you're chasing. Blueprint measures the gap between you and your goal."
+                    subtitle: "Upload photos of the physique you're chasing. PhyziqAi measures the gap between you and your goal."
                 )
                 .tag(1)
                 OnboardingSlide(
                     icon: "square.grid.2x2",
-                    title: "Get the\nblueprint.",
+                    title: "Get your\nplan.",
                     subtitle: "A week-by-week training plan engineered to close that gap — built for your body, your gym, your schedule."
                 )
                 .tag(2)
@@ -93,7 +93,7 @@ struct OnboardingView: View {
             }
             .padding(.bottom, 24)
 
-            Button(slideIndex < 2 ? "Continue" : "Build my blueprint") {
+            Button(slideIndex < 2 ? "Continue" : "Build my plan") {
                 Haptics.impact(.light)
                 if slideIndex < 2 {
                     withAnimation { slideIndex += 1 }
@@ -209,7 +209,7 @@ struct OnboardingView: View {
             }
 
             if !isAdult {
-                Label("Blueprint is designed for adults 18 and over.", systemImage: "exclamationmark.triangle.fill")
+                Label("PhyziqAi is designed for adults 18 and over.", systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Theme.warning)
                     .padding(12)
@@ -452,7 +452,7 @@ struct OnboardingView: View {
                     subtitle: "Upload 1–3 photos of the body you're working toward."
                 )
 
-                Text("Physique athletes, fitness models, or anyone whose build inspires you. Blueprint uses these to measure your gap and engineer your plan.")
+                Text("Physique athletes, fitness models, or anyone whose build inspires you. PhyziqAi uses these to measure your gap and engineer your plan.")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.textSecondary)
                     .lineSpacing(3)
@@ -542,7 +542,7 @@ struct OnboardingView: View {
                     finish()
                 } label: {
                     HStack {
-                        Text(goalDrafts.isEmpty ? "Skip for now" : "Create my blueprint")
+                        Text(goalDrafts.isEmpty ? "Skip for now" : "Create my plan")
                         if !goalDrafts.isEmpty {
                             Image(systemName: "arrow.right")
                         }
