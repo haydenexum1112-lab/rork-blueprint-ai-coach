@@ -13,6 +13,7 @@ struct EditProfileSheet: View {
     @State private var weightKg: Double = 80
     @State private var experience: Experience = .beginner
     @State private var daysPerWeek: Int = 4
+    @State private var originalDaysPerWeek: Int = 4
     @State private var equipment: Equipment = .fullGym
     @State private var goalTags: Set<GoalTag> = []
 
@@ -107,9 +108,15 @@ struct EditProfileSheet: View {
                 }
 
                 Section {
-                    Text("Changes apply to your next scan and plan. Your current plan stays as-is until you re-scan.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.textSecondary)
+                    if daysPerWeek != originalDaysPerWeek {
+                        Label("Your workout plan will update to \(daysPerWeek) days automatically when you save.", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.accent)
+                    } else {
+                        Text("Changes to your stats and goals apply to your next scan.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
                 }
             }
             .scrollContentBackground(.hidden)
@@ -145,12 +152,14 @@ struct EditProfileSheet: View {
         weightKg = profile.weightKg
         experience = profile.experience
         daysPerWeek = profile.daysPerWeek
+        originalDaysPerWeek = profile.daysPerWeek
         equipment = profile.equipment
         goalTags = Set(profile.goalTags)
     }
 
     private func save() {
         guard var profile = appState.profile else { return }
+        let daysChanged = daysPerWeek != originalDaysPerWeek
         profile.name = name.trimmingCharacters(in: .whitespaces)
         profile.age = age
         profile.sex = sex
@@ -162,6 +171,10 @@ struct EditProfileSheet: View {
         profile.equipment = equipment
         profile.goalTags = Array(goalTags)
         appState.saveProfile(profile)
+        if daysChanged {
+            Haptics.success()
+            appState.regeneratePlan(forNewDaysPerWeek: daysPerWeek)
+        }
         dismiss()
     }
 }

@@ -774,6 +774,30 @@ final class AppState {
         try? fileManager.removeItem(at: documentsURL.appendingPathComponent(fileName))
     }
 
+    // MARK: - Plan regeneration
+
+    /// Regenerates the workout plan to match a new `daysPerWeek` value, redistributing
+    /// existing AI exercises and filling gaps from the ExerciseLibrary. No AI call needed.
+    func regeneratePlan(forNewDaysPerWeek newDays: Int) {
+        guard let scan = latestScan,
+              let analysis = scan.analysis else { return }
+        guard let profile = profile else { return }
+        guard analysis.plan.days.count != newDays else { return }
+
+        let regenerated = PlanRegenerator.regenerate(
+            analysis: analysis,
+            newDaysPerWeek: newDays,
+            equipment: profile.equipment,
+            experience: profile.experience
+        )
+
+        // Update the latest scan's analysis in place
+        if let idx = scans.firstIndex(where: { $0.id == scan.id }) {
+            scans[idx].analysis = regenerated
+            persistScans()
+        }
+    }
+
     // MARK: - Nutrition
 
     func saveNutritionPreferences(_ prefs: NutritionPreferences) {
