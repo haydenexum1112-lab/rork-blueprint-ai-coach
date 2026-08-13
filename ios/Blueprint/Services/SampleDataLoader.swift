@@ -48,10 +48,10 @@ enum SampleDataLoader {
             appState.saveProfile(profile)
         }
 
-        // 2. Download and save goal images.
+        // 2. Download and save goal images (best-effort — demo works without images).
         var targetImages: [TargetImage] = []
         for (index, url) in targetURLs.enumerated() {
-            let data = try await download(url: url)
+            guard let data = try? await download(url: url) else { continue }
             let resized = ImageResizer.resize(data, maxBytes: 900_000) ?? data
             guard let fileName = ImageStore.save(resized) else { continue }
             let caption: String
@@ -64,40 +64,25 @@ enum SampleDataLoader {
             }
             targetImages.append(TargetImage(fileName: fileName, caption: caption))
         }
-        guard targetImages.count == targetURLs.count else {
-            throw SampleLoadError.goalDownloadFailed
-        }
-        let target = TargetReference(images: targetImages)
-        appState.saveTarget(target)
-
-        // 3. Download and save current-physique frames.
-        var frameData: [Data] = []
-        for url in currentURLs {
-            let data = try await download(url: url)
-            let resized = ImageResizer.resize(data, maxBytes: 900_000) ?? data
-            frameData.append(resized)
-        }
-        guard frameData.count == currentURLs.count else {
-            throw SampleLoadError.scanDownloadFailed
+        if !targetImages.isEmpty {
+            let target = TargetReference(images: targetImages)
+            appState.saveTarget(target)
         }
 
+        // 3. Download and save current-physique frames (best-effort).
         var frameFileNames: [String] = []
-        for frame in frameData {
-            guard let name = ImageStore.save(frame) else { continue }
+        for url in currentURLs {
+            guard let data = try? await download(url: url) else { continue }
+            let resized = ImageResizer.resize(data, maxBytes: 900_000) ?? data
+            guard let name = ImageStore.save(resized) else { continue }
             frameFileNames.append(name)
         }
-        guard frameFileNames.count == 3 else {
-            throw SampleLoadError.scanSaveFailed
-        }
 
-        // 4. Build context and run AI analysis.
-        let context = buildProfileContext(profile: profile, target: target)
-        let targets = targetImages.compactMap { ref -> (Data, String)? in
-            guard let data = ImageStore.loadData(ref.fileName) else { return nil }
-            return (data, ref.caption)
-        }
-        let input = AnalysisInput(profileContext: context, frames: frameData, targets: targets)
-        let (result, rawJSON) = try await AIService.analyze(input)
+        // 4. Use hardcoded offline sample analysis — no AI API call needed.
+        //    This ensures Apple reviewers always see the app's core features
+        //    even if the AI service is slow or down.
+        let result = SampleAnalysisData.sampleResult
+        let rawJSON = SampleAnalysisData.sampleRawJSON
 
         // 5. Save scan, start trial, and mark paywall seen so the full plan is visible in demo.
         let scan = Scan(date: Date(), frameFileNames: frameFileNames, analysis: result, rawJSON: rawJSON)
@@ -105,6 +90,7 @@ enum SampleDataLoader {
         appState.startTrial(tier: .everything)
         appState.markPaywallSeen()
         appState.meta.parqPassed = true
+        appState.meta.parqCompletedAt = Date()
         appState.persistMeta()
     }
 
