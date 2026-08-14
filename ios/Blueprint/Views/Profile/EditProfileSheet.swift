@@ -175,6 +175,8 @@ struct EditProfileSheet: View {
             Haptics.success()
             appState.regeneratePlan(forNewDaysPerWeek: daysPerWeek)
         }
+        // Safety net: ensure the plan always matches the saved profile day count.
+        appState.ensurePlanMatchesProfile()
         dismiss()
     }
 }

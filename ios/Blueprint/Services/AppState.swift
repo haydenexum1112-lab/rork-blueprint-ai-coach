@@ -36,6 +36,7 @@ final class AppState {
     init() {
         load()
         expireTrialIfNeeded()
+        ensurePlanMatchesProfile()
     }
 
     // MARK: - Derived state
@@ -795,7 +796,20 @@ final class AppState {
         if let idx = scans.firstIndex(where: { $0.id == scan.id }) {
             scans[idx].analysis = regenerated
             persistScans()
+            print("[AppState] Regenerated plan: \(analysis.plan.days.count) -> \(newDays) days")
         }
+    }
+
+    /// Ensures the latest plan's day count matches the current profile. This catches cases
+    /// where the AI returned a plan with the wrong number of days, or where a prior app
+    /// version didn't sync the plan after a profile edit.
+    func ensurePlanMatchesProfile() {
+        guard let profile = profile,
+              let analysis = latestAnalysis else { return }
+        let expectedDays = profile.daysPerWeek
+        let actualDays = analysis.plan.days.count
+        guard actualDays != expectedDays else { return }
+        regeneratePlan(forNewDaysPerWeek: expectedDays)
     }
 
     // MARK: - Nutrition

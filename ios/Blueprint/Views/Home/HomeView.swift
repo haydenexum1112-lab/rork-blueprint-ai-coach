@@ -48,7 +48,7 @@ struct HomeView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Text("BLUEPRINT")
+                    Text("PHYZIQAI")
                         .font(.system(size: 14, weight: .black))
                         .tracking(4)
                         .foregroundStyle(Theme.accent)
@@ -67,6 +67,9 @@ struct HomeView: View {
                 Button("OK") { sampleError = nil }
             } message: {
                 Text(sampleError ?? "")
+            }
+            .onAppear {
+                appState.ensurePlanMatchesProfile()
             }
             .onChange(of: appState.scans.count) { _, newCount in
                 // Prompt for notifications the first time a plan is generated
