@@ -1,0 +1,169 @@
+{
+  "identifier" : "F9A3B2C1-8D4E-4A5F-B6C7-D8E9F0A1B2C3",
+  "type" : "subscriptions",
+  "version" : 3,
+  "subscriptionGroups" : [
+    {
+      "id" : "PhyziqAi Pro",
+      "localizations" : [
+        {
+          "description" : "PhyziqAi Pro subscriptions",
+          "displayName" : "PhyziqAi Pro",
+          "locale" : "en-US"
+        }
+      ],
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "12.99",
+          "familySharable" : false,
+          "groupLevel" : 1,
+          "internalID" : "workouts-monthly",
+          "introductoryOffer" : {
+            "displayPrice" : "FREE",
+            "internalID" : "trial-7d",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock all training plans",
+              "displayName" : "PhyziqAi Workouts",
+              "locale" : "en-US"
+            }
+          ],
+          "productID" : "app.rork.65qn5mmc0o8br1jaq624d.workouts.monthly2",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Workouts Monthly",
+          "subscriptionPeriod" : "P1M"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "79.00",
+          "familySharable" : false,
+          "groupLevel" : 2,
+          "internalID" : "workouts-annual",
+          "introductoryOffer" : {
+            "displayPrice" : "FREE",
+            "internalID" : "trial-7d",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock all training plans",
+              "displayName" : "PhyziqAi Workouts",
+              "locale" : "en-US"
+            }
+          ],
+          "productID" : "app.rork.65qn5mmc0o8br1jaq624d.workouts.annual2",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Workouts Annual",
+          "subscriptionPeriod" : "P1Y"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "7.99",
+          "familySharable" : false,
+          "groupLevel" : 3,
+          "internalID" : "nutrition-monthly",
+          "introductoryOffer" : {
+            "displayPrice" : "FREE",
+            "internalID" : "trial-7d",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock meal planning & tracking",
+              "displayName" : "PhyziqAi Nutrition",
+              "locale" : "en-US"
+            }
+          ],
+          "productID" : "app.rork.65qn5mmc0o8br1jaq624d.nutrition.monthly2",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Nutrition Monthly",
+          "subscriptionPeriod" : "P1M"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "49.00",
+          "familySharable" : false,
+          "groupLevel" : 4,
+          "internalID" : "nutrition-annual",
+          "introductoryOffer" : {
+            "displayPrice" : "FREE",
+            "internalID" : "trial-7d",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock meal planning & tracking",
+              "displayName" : "PhyziqAi Nutrition",
+              "locale" : "en-US"
+            }
+          ],
+          "productID" : "app.rork.65qn5mmc0o8br1jaq624d.nutrition.annual2",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Nutrition Annual",
+          "subscriptionPeriod" : "P1Y"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "16.99",
+          "familySharable" : false,
+          "groupLevel" : 5,
+          "internalID" : "everything-monthly",
+          "introductoryOffer" : {
+            "displayPrice" : "FREE",
+            "internalID" : "trial-7d",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Full coaching: train, eat, track",
+              "displayName" : "PhyziqAi Everything",
+              "locale" : "en-US"
+            }
+          ],
+          "productID" : "app.rork.65qn5mmc0o8br1jaq624d.everything.monthly2",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Everything Monthly",
+          "subscriptionPeriod" : "P1M"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "99.00",
+          "familySharable" : false,
+          "groupLevel" : 6,
+          "internalID" : "everything-annual",
+          "introductoryOffer" : {
+            "displayPrice" : "FREE",
+            "internalID" : "trial-7d",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Full coaching: train, eat, track",
+              "displayName" : "PhyziqAi Everything",
+              "locale" : "en-US"
+            }
+          ],
+          "productID" : "app.rork.65qn5mmc0o8br1jaq624d.everything.annual2",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Everything Annual",
+          "subscriptionPeriod" : "P1Y"
+        }
+      ]
+    }
+  ]
+}

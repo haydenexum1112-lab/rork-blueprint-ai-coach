@@ -47,8 +47,14 @@ final class HealthKitManager {
     /// available on this device. Creating HKHealthStore when HealthKit is
     /// unavailable triggers a runtime crash.
     private var _store: HKHealthStore?
-    private var store: HKHealthStore {
+    private var storeCreationFailed: Bool = false
+    private var store: HKHealthStore? {
+        if storeCreationFailed { return nil }
         if let s = _store { return s }
+        guard isAvailable else {
+            storeCreationFailed = true
+            return nil
+        }
         let s = HKHealthStore()
         _store = s
         return s
@@ -94,10 +100,14 @@ final class HealthKitManager {
             lastError = HealthKitError.unavailable.errorDescription
             return
         }
+        guard let healthStore = store else {
+            lastError = HealthKitError.unavailable.errorDescription
+            return
+        }
         isRequesting = true
         lastError = nil
         do {
-            try await store.requestAuthorization(toShare: shareTypes, read: readTypes)
+            try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
             isAuthorized = true
             persistConnectionState(true)
         } catch {
@@ -130,7 +140,7 @@ final class HealthKitManager {
     /// Fetches the most recent body mass sample, optionally as of a given date.
     /// Returns the weight in kilograms, or nil if no data.
     func fetchLatestBodyMass(asOf date: Date = .distantFuture) async throws -> Double? {
-        guard isAvailable else { throw HealthKitError.unavailable }
+        guard isAvailable, let healthStore = store else { throw HealthKitError.unavailable }
         guard let bodyMassType = HKObjectType.quantityType(forIdentifier: .bodyMass) else {
             throw HealthKitError.queryFailed("body mass type unavailable")
         }
@@ -156,7 +166,7 @@ final class HealthKitManager {
                 let kg = sample.quantity.doubleValue(for: .gramUnit(with: .kilo))
                 continuation.resume(returning: kg)
             }
-            store.execute(query)
+            healthStore.execute(query)
         }
     }
 
@@ -164,7 +174,7 @@ final class HealthKitManager {
 
     /// Fetches total step count for a given calendar day.
     func fetchSteps(on date: Date) async throws -> Int {
-        guard isAvailable else { throw HealthKitError.unavailable }
+        guard isAvailable, let healthStore = store else { throw HealthKitError.unavailable }
         guard let stepType = HKObjectType.quantityType(forIdentifier: .stepCount) else {
             throw HealthKitError.queryFailed("step type unavailable")
         }
@@ -185,7 +195,7 @@ final class HealthKitManager {
                 let steps = Int(statistics?.sumQuantity()?.doubleValue(for: .count()) ?? 0)
                 continuation.resume(returning: steps)
             }
-            store.execute(query)
+            healthStore.execute(query)
         }
     }
 
@@ -193,7 +203,7 @@ final class HealthKitManager {
 
     /// Fetches total active energy burned (kcal) for a given calendar day.
     func fetchActiveEnergy(on date: Date) async throws -> Int {
-        guard isAvailable else { throw HealthKitError.unavailable }
+        guard isAvailable, let healthStore = store else { throw HealthKitError.unavailable }
         guard let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) else {
             throw HealthKitError.queryFailed("energy type unavailable")
         }
@@ -214,7 +224,7 @@ final class HealthKitManager {
                 let kcal = Int(statistics?.sumQuantity()?.doubleValue(for: .kilocalorie()) ?? 0)
                 continuation.resume(returning: kcal)
             }
-            store.execute(query)
+            healthStore.execute(query)
         }
     }
 
@@ -222,7 +232,7 @@ final class HealthKitManager {
 
     /// Fetches workout samples in the given date range.
     func fetchWorkouts(from start: Date, to end: Date) async throws -> [HKWorkout] {
-        guard isAvailable else { throw HealthKitError.unavailable }
+        guard isAvailable, let healthStore = store else { throw HealthKitError.unavailable }
         let workoutType = HKObjectType.workoutType()
 
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
@@ -242,7 +252,7 @@ final class HealthKitManager {
                 let workouts = (results as? [HKWorkout]) ?? []
                 continuation.resume(returning: workouts)
             }
-            store.execute(query)
+            healthStore.execute(query)
         }
     }
 
@@ -273,7 +283,7 @@ final class HealthKitManager {
         fatGrams: Int,
         date: Date
     ) async {
-        guard isAvailable, isAuthorized else { return }
+        guard isAvailable, isAuthorized, let healthStore = store else { return }
         guard let nutritionType = HKObjectType.correlationType(forIdentifier: .food) else { return }
 
         var samples: [HKQuantitySample] = []
@@ -330,7 +340,7 @@ final class HealthKitManager {
         )
 
         do {
-            try await store.save(correlation)
+            try await healthStore.save(correlation)
         } catch {
             // Non-fatal — we don't want logging to fail if HealthKit write fails.
             print("[HealthKitManager] Nutrition write failed: \(error.localizedDescription)")

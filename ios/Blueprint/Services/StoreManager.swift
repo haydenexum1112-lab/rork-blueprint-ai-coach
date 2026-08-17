@@ -2,13 +2,14 @@ import Foundation
 import StoreKit
 
 /// Product identifiers for PhyziqAi's three subscription tiers (monthly + annual).
+/// These must match exactly the product IDs configured in App Store Connect.
 nonisolated enum ProductID {
-    static let workoutsMonthly  = "app.rork.phyziqai.workouts.monthly"
-    static let workoutsAnnual   = "app.rork.phyziqai.workouts.annual"
-    static let nutritionMonthly = "app.rork.phyziqai.nutrition.monthly"
-    static let nutritionAnnual  = "app.rork.phyziqai.nutrition.annual"
-    static let everythingMonthly = "app.rork.phyziqai.everything.monthly"
-    static let everythingAnnual  = "app.rork.phyziqai.everything.annual"
+    static let workoutsMonthly  = "app.rork.65qn5mmc0o8br1jaq624d.workouts.monthly2"
+    static let workoutsAnnual   = "app.rork.65qn5mmc0o8br1jaq624d.workouts.annual2"
+    static let nutritionMonthly = "app.rork.65qn5mmc0o8br1jaq624d.nutrition.monthly2"
+    static let nutritionAnnual  = "app.rork.65qn5mmc0o8br1jaq624d.nutrition.annual2"
+    static let everythingMonthly = "app.rork.65qn5mmc0o8br1jaq624d.everything.monthly2"
+    static let everythingAnnual  = "app.rork.65qn5mmc0o8br1jaq624d.everything.annual2"
 
     static let all: Set<String> = [
         workoutsMonthly, workoutsAnnual,
@@ -18,9 +19,9 @@ nonisolated enum ProductID {
 
     /// Maps a product ID to its subscription tier.
     static func tier(for id: String) -> SubscriptionTier? {
-        if id.hasPrefix("app.rork.phyziqai.workouts") { return .workouts }
-        if id.hasPrefix("app.rork.phyziqai.nutrition") { return .nutrition }
-        if id.hasPrefix("app.rork.phyziqai.everything") { return .everything }
+        if id.contains(".workouts.") { return .workouts }
+        if id.contains(".nutrition.") { return .nutrition }
+        if id.contains(".everything.") { return .everything }
         return nil
     }
 
