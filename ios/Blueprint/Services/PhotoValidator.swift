@@ -1,6 +1,7 @@
 import Foundation
 import Vision
 import UIKit
+import os
 
 /// Validates that a captured frame actually shows a full human physique,
 /// not a close-up, selfie, or non-body photo. Uses Vision body pose + face detection.
@@ -83,7 +84,10 @@ nonisolated enum PhotoValidator {
 
     private static func detectBodyBox(_ cgImage: CGImage) async -> CGRect? {
         await withCheckedContinuation { (continuation: CheckedContinuation<CGRect?, Never>) in
+            let resumed = OSAllocatedUnfairLock(initialState: false)
             let request = VNDetectHumanRectanglesRequest { request, _ in
+                guard !resumed.withLock({ $0 }) else { return }
+                resumed.withLock { $0 = true }
                 let observations = request.results as? [VNHumanObservation]
                 let largest = observations?.max(by: { $0.boundingBox.height < $1.boundingBox.height })
                 continuation.resume(returning: largest?.boundingBox)
@@ -93,6 +97,8 @@ nonisolated enum PhotoValidator {
             do {
                 try handler.perform([request])
             } catch {
+                guard !resumed.withLock({ $0 }) else { return }
+                resumed.withLock { $0 = true }
                 continuation.resume(returning: nil)
             }
         }
@@ -100,7 +106,10 @@ nonisolated enum PhotoValidator {
 
     private static func detectFaceBox(_ cgImage: CGImage) async -> CGRect? {
         await withCheckedContinuation { (continuation: CheckedContinuation<CGRect?, Never>) in
+            let resumed = OSAllocatedUnfairLock(initialState: false)
             let request = VNDetectFaceRectanglesRequest { request, _ in
+                guard !resumed.withLock({ $0 }) else { return }
+                resumed.withLock { $0 = true }
                 let observations = request.results as? [VNFaceObservation]
                 let largest = observations?.max(by: { $0.boundingBox.height < $1.boundingBox.height })
                 continuation.resume(returning: largest?.boundingBox)
@@ -110,6 +119,8 @@ nonisolated enum PhotoValidator {
             do {
                 try handler.perform([request])
             } catch {
+                guard !resumed.withLock({ $0 }) else { return }
+                resumed.withLock { $0 = true }
                 continuation.resume(returning: nil)
             }
         }
