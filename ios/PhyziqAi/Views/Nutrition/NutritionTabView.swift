@@ -13,7 +13,7 @@ struct NutritionTabView: View {
         NavigationStack {
             ZStack {
                 Theme.bg.ignoresSafeArea()
-                BlueprintGridBackground().ignoresSafeArea()
+                PhyziqAiGridBackground().ignoresSafeArea()
 
                 if !appState.hasNutrition {
                     lockedView

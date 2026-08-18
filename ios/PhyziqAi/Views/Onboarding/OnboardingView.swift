@@ -31,7 +31,7 @@ struct OnboardingView: View {
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
-            BlueprintGridBackground()
+            PhyziqAiGridBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {

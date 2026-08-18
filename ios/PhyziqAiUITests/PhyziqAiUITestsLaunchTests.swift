@@ -1,13 +1,13 @@
 //
-//  BlueprintUITestsLaunchTests.swift
-//  BlueprintUITests
+//  PhyziqAiUITestsLaunchTests.swift
+//  PhyziqAiUITests
 //
 //  Created by Rork on July 21, 2026.
 //
 
 import XCTest
 
-final class BlueprintUITestsLaunchTests: XCTestCase {
+final class PhyziqAiUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

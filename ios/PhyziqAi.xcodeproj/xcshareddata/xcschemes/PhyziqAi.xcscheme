@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "105FC5792E9EAD3100EA8BCF"
-               BuildableName = "Blueprint.app"
-               BlueprintName = "Blueprint"
-               ReferencedContainer = "container:Blueprint.xcodeproj">
+               BuildableName = "PhyziqAi.app"
+               BlueprintName = "PhyziqAi"
+               ReferencedContainer = "container:PhyziqAi.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -36,9 +36,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "105FC5882E9EAD3200EA8BCF"
-               BuildableName = "BlueprintTests.xctest"
-               BlueprintName = "BlueprintTests"
-               ReferencedContainer = "container:Blueprint.xcodeproj">
+               BuildableName = "PhyziqAiTests.xctest"
+               BlueprintName = "PhyziqAiTests"
+               ReferencedContainer = "container:PhyziqAi.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -47,9 +47,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "105FC5922E9EAD3200EA8BCF"
-               BuildableName = "BlueprintUITests.xctest"
-               BlueprintName = "BlueprintUITests"
-               ReferencedContainer = "container:Blueprint.xcodeproj">
+               BuildableName = "PhyziqAiUITests.xctest"
+               BlueprintName = "PhyziqAiUITests"
+               ReferencedContainer = "container:PhyziqAi.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -70,9 +70,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "105FC5792E9EAD3100EA8BCF"
-            BuildableName = "Blueprint.app"
-            BlueprintName = "Blueprint"
-            ReferencedContainer = "container:Blueprint.xcodeproj">
+            BuildableName = "PhyziqAi.app"
+            BlueprintName = "PhyziqAi"
+            ReferencedContainer = "container:PhyziqAi.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -88,9 +88,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "105FC5792E9EAD3100EA8BCF"
-            BuildableName = "Blueprint.app"
-            BlueprintName = "Blueprint"
-            ReferencedContainer = "container:Blueprint.xcodeproj">
+            BuildableName = "PhyziqAi.app"
+            BlueprintName = "PhyziqAi"
+            ReferencedContainer = "container:PhyziqAi.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

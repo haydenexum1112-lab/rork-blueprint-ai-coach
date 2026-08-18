@@ -4,7 +4,10 @@
     {
       "name": "Blueprint",
       "path": "ios",
-      "framework": "swift"
+      "framework": "swift",
+      "settings": {
+        "displayName": "PhyziqAi"
+      }
     },
     {
       "name": "PhyziqAi",

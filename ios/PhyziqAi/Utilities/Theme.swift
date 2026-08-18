@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Central design tokens for Blueprint: clean, modern light UI with a single electric cyan accent.
+/// Central design tokens for PhyziqAi: clean, modern light UI with a single electric cyan accent.
 enum Theme {
     static let bg = Color(red: 245 / 255, green: 248 / 255, blue: 252 / 255)
     static let surface = Color.white
@@ -30,7 +30,7 @@ extension Font {
 }
 
 /// Subtle blueprint grid backdrop used behind hero sections.
-struct BlueprintGridBackground: View {
+struct PhyziqAiGridBackground: View {
     var lineColor: Color = Theme.accent.opacity(0.10)
     var spacing: CGFloat = 28
 

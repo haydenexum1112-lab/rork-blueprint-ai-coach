@@ -1,6 +1,6 @@
 //
-//  BlueprintApp.swift
-//  Blueprint
+//  PhyziqAiApp.swift
+//  PhyziqAi
 //
 //  Created by Rork on July 21, 2026.
 //
@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct BlueprintApp: App {
+struct PhyziqAiApp: App {
     @State private var authManager = AuthManager()
     @State private var healthKit = HealthKitManager()
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -24,7 +24,7 @@ struct BlueprintApp: App {
                     // Startup diagnostic: confirm Rork toolkit credentials are bundled.
                     let configured = RuntimeConfig.isToolkitConfigured
                     let source = RuntimeConfig.toolkitURL.isEmpty ? "none" : (Config.allValues["EXPO_PUBLIC_TOOLKIT_URL"]?.isEmpty == false ? "Config.swift" : (Bundle.main.url(forResource: "BundledConfig", withExtension: "plist") != nil ? "BundledConfig.plist" : "Info.plist/fallback"))
-                    print("[BlueprintApp] Toolkit configured: \(configured) (source: \(source))")
+                    print("[PhyziqAiApp] Toolkit configured: \(configured) (source: \(source))")
                 }
         }
     }

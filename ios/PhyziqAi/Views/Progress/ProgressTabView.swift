@@ -212,7 +212,7 @@ struct ProgressTabView: View {
                 .background(
                     RoundedRectangle(cornerRadius: Theme.cardRadius)
                         .fill(Theme.surface)
-                        .overlay(BlueprintGridBackground(lineColor: Theme.accent.opacity(0.06), spacing: 22).clipShape(.rect(cornerRadius: Theme.cardRadius)))
+                        .overlay(PhyziqAiGridBackground(lineColor: Theme.accent.opacity(0.06), spacing: 22).clipShape(.rect(cornerRadius: Theme.cardRadius)))
                         .overlay(
                             RoundedRectangle(cornerRadius: Theme.cardRadius)
                                 .strokeBorder(Theme.accent.opacity(0.3), lineWidth: 1)

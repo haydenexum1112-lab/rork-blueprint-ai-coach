@@ -1,13 +1,13 @@
 //
-//  BlueprintUITests.swift
-//  BlueprintUITests
+//  PhyziqAiUITests.swift
+//  PhyziqAiUITests
 //
 //  Created by Rork on July 21, 2026.
 //
 
 import XCTest
 
-final class BlueprintUITests: XCTestCase {
+final class PhyziqAiUITests: XCTestCase {
 
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.

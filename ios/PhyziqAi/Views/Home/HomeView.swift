@@ -84,7 +84,7 @@ struct HomeView: View {
 
     private var setupContent: some View {
         ZStack {
-            BlueprintGridBackground().ignoresSafeArea()
+            PhyziqAiGridBackground().ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 24) {
                 Spacer()
@@ -164,7 +164,7 @@ private struct SetupHeroView: View {
 
     var body: some View {
         ZStack {
-            BlueprintGridBackground().ignoresSafeArea()
+            PhyziqAiGridBackground().ignoresSafeArea()
 
             VStack(alignment: .leading, spacing: 24) {
                 Spacer()

@@ -51,7 +51,7 @@ struct PaywallView: View {
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
-            BlueprintGridBackground().ignoresSafeArea()
+            PhyziqAiGridBackground().ignoresSafeArea()
 
             VStack(spacing: 0) {
                 HStack {
