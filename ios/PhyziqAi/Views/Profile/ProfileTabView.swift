@@ -1,5 +1,6 @@
 import SwiftUI
 import AuthenticationServices
+import UIKit
 
 /// Profile: account, stats, goal photos, training prefs, subscription, and privacy controls.
 struct ProfileTabView: View {
@@ -464,7 +465,10 @@ struct ProfileTabView: View {
                 .lineSpacing(3)
 
             if !healthKit.isAvailable {
-                Text("Apple Health isn't available on this device.")
+                let isPad = UIDevice.current.userInterfaceIdiom == .pad
+                Text(isPad
+                     ? "Apple Health isn't available on iPad in this version of PhyziqAi. Connect on iPhone to sync health data."
+                     : "Apple Health isn't available on this device.")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.warning)
                     .frame(maxWidth: .infinity, alignment: .leading)

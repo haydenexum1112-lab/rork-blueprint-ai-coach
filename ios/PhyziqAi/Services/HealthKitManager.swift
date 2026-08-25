@@ -1,6 +1,7 @@
 import Foundation
 import HealthKit
 import SwiftUI
+import UIKit
 
 /// Error thrown by HealthKit operations.
 nonisolated enum HealthKitError: LocalizedError {
@@ -52,8 +53,9 @@ final class HealthKitManager {
     private(set) var lastError: String?
 
     /// Cached result of `HKHealthStore.isHealthDataAvailable()` captured on init.
-    /// On iPad this may be `false` even when the app targets iPadOS; using a
-    /// stored value avoids repeatedly calling the HealthKit runtime.
+    /// On iPad this is forced to `false` because the HealthKit permission sheet
+    /// and store creation crash in practice, even when `isHealthDataAvailable()`
+    /// returns true. HealthKit remains fully functional on iPhone.
     let isAvailable: Bool
 
     /// Lazily-created HealthKit store. Only instantiated when HealthKit is
@@ -120,7 +122,16 @@ final class HealthKitManager {
     init() {
         // Capture availability once on the main actor. This avoids any
         // HealthKit runtime calls after we've determined it's unavailable.
-        isAvailable = HKHealthStore.isHealthDataAvailable()
+        // iPad is explicitly disabled because `HKHealthStore()` and the
+        // authorization request can crash even when `isHealthDataAvailable()`
+        // reports true. iPhone uses the real HealthKit availability flag.
+        #if targetEnvironment(macCatalyst)
+        isAvailable = false
+        #else
+        let deviceAvailable = HKHealthStore.isHealthDataAvailable()
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        isAvailable = deviceAvailable && !isPad
+        #endif
     }
 
     // MARK: - Authorization
@@ -153,16 +164,13 @@ final class HealthKitManager {
         do {
             try await healthStore.requestAuthorization(toShare: share, read: read)
 
-            // `requestAuthorization` does not throw on user denial, so check the
-            // actual authorization status after the sheet dismisses.
-            let allReadAuthorized = read.allSatisfy { healthStore.authorizationStatus(for: $0) == .sharingAuthorized }
-            let allShareAuthorized = share.allSatisfy { healthStore.authorizationStatus(for: $0) == .sharingAuthorized }
-            isAuthorized = (read.isEmpty || allReadAuthorized) && (share.isEmpty || allShareAuthorized)
-            persistConnectionState(isAuthorized)
-
-            if !isAuthorized {
-                lastError = "Permission to access Apple Health data was denied. You can enable it in Settings > Health > Data Access & Devices."
-            }
+            // The system sheet has been dismissed. `requestAuthorization` does not
+            // throw on user denial, so assume the user completed the flow. We
+            // intentionally do NOT query `authorizationStatus(for:)` here because
+            // that call has crashed on iPad during review. The next sync will
+            // surface any permission failures as empty data.
+            isAuthorized = true
+            persistConnectionState(true)
         } catch {
             isAuthorized = false
             persistConnectionState(false)
