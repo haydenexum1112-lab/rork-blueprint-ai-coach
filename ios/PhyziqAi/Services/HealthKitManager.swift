@@ -36,8 +36,14 @@ nonisolated struct HealthDaySummary: Hashable {
     let bodyMassKg: Double?
 }
 
-/// Manages the Apple Health (HealthKit) connection: authorization, reading
-/// body weight / workouts / steps / active energy, and writing nutrition data.
+/// Manages the Apple Health (HealthKit) connection: authorization and reading
+/// body weight / workouts / steps / active energy.
+///
+/// Authorization is READ-ONLY by design. On iOS 26, requesting share (write)
+/// types makes HealthKit raise a synchronous ObjC exception
+/// (`_throwIfAuthorizationDisallowedForSharing`) that Swift cannot catch,
+/// killing the process with SIGABRT. Requesting only read types never enters
+/// that code path, so the permission sheet is crash-free.
 ///
 /// HealthKit is not available on every device (e.g. some iPad configurations),
 /// so every operation checks `HKHealthStore.isHealthDataAvailable()` before
@@ -97,27 +103,10 @@ final class HealthKitManager {
         return types
     }
 
-    /// The types we want to WRITE to Apple Health. Built defensively: any
-    /// unsupported type is omitted rather than force-unwrapped.
-    private var shareTypes: Set<HKSampleType> {
-        var types = Set<HKSampleType>()
-        if let energy = HKObjectType.quantityType(forIdentifier: .dietaryEnergyConsumed) {
-            types.insert(energy)
-        }
-        if let protein = HKObjectType.quantityType(forIdentifier: .dietaryProtein) {
-            types.insert(protein)
-        }
-        if let carbs = HKObjectType.quantityType(forIdentifier: .dietaryCarbohydrates) {
-            types.insert(carbs)
-        }
-        if let fat = HKObjectType.quantityType(forIdentifier: .dietaryFatTotal) {
-            types.insert(fat)
-        }
-        if let food = HKObjectType.correlationType(forIdentifier: .food) {
-            types.insert(food)
-        }
-        return types
-    }
+    /// The types we want to WRITE to Apple Health, kept for reference only.
+    /// Deliberately NOT requested during authorization (see
+    /// `requestAuthorization`) — requesting share types raises an uncatchable
+    /// ObjC exception on iOS 26 that crashes the app.
 
     init() {
         // Capture availability once on the main actor. This avoids any
@@ -136,9 +125,13 @@ final class HealthKitManager {
 
     // MARK: - Authorization
 
-    /// Requests HealthKit authorization from the user. Presents the system
-    /// Health permission sheet if HealthKit is available and the device supports
-    /// the requested types. Safe to call multiple times.
+    /// Requests HealthKit authorization from the user (read-only). Presents the
+    /// system Health permission sheet if HealthKit is available and the device
+    /// supports the requested types. Safe to call multiple times.
+    ///
+    /// Deliberately passes an empty share set: including share types triggers
+    /// `_throwIfAuthorizationDisallowedForSharing` — an uncatchable ObjC
+    /// exception that crashes the app (SIGABRT) on iOS 26.
     func requestAuthorization() async {
         guard isAvailable else {
             lastError = HealthKitError.unavailable.errorDescription
@@ -146,8 +139,7 @@ final class HealthKitManager {
         }
 
         let read = readTypes
-        let share = shareTypes
-        guard !read.isEmpty || !share.isEmpty else {
+        guard !read.isEmpty else {
             lastError = HealthKitError.typesUnavailable.errorDescription
             return
         }
@@ -162,7 +154,7 @@ final class HealthKitManager {
         defer { isRequesting = false }
 
         do {
-            try await healthStore.requestAuthorization(toShare: share, read: read)
+            try await healthStore.requestAuthorization(toShare: [], read: read)
 
             // The system sheet has been dismissed. `requestAuthorization` does not
             // throw on user denial, so assume the user completed the flow. We
@@ -335,7 +327,9 @@ final class HealthKitManager {
     // MARK: - Write nutrition data
 
     /// Writes a single food entry's macros to Apple Health as a nutrition correlation.
-    /// Silent no-op if HealthKit isn't authorized or available.
+    /// Best-effort only: no share authorization is requested (see `requestAuthorization`),
+    /// so unless the user manually enabled write access in Settings > Health, the
+    /// save fails and is swallowed here.
     func writeNutritionEntry(
         name: String,
         calories: Int,

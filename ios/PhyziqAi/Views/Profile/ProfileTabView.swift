@@ -459,7 +459,7 @@ struct ProfileTabView: View {
                 }
             }
 
-            Text("Sync your body weight, workouts, and step count from Apple Health, and share your logged meals back to the Health app.")
+            Text("Sync your body weight, workouts, and step count from Apple Health to keep your profile and training calendar up to date.")
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.textSecondary)
                 .lineSpacing(3)
