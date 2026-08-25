@@ -8,6 +8,7 @@ nonisolated enum HealthKitError: LocalizedError {
     case notAuthorized
     case noData
     case queryFailed(String)
+    case typesUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -19,6 +20,8 @@ nonisolated enum HealthKitError: LocalizedError {
             return "No data found in Apple Health for that category."
         case .queryFailed(let message):
             return "Apple Health request failed: \(message)"
+        case .typesUnavailable:
+            return "No HealthKit data types are available on this device."
         }
     }
 }
@@ -34,87 +37,137 @@ nonisolated struct HealthDaySummary: Hashable {
 
 /// Manages the Apple Health (HealthKit) connection: authorization, reading
 /// body weight / workouts / steps / active energy, and writing nutrition data.
+///
+/// HealthKit is not available on every device (e.g. some iPad configurations),
+/// so every operation checks `HKHealthStore.isHealthDataAvailable()` before
+/// creating an `HKHealthStore` instance or calling any HealthKit API.
 @Observable
+@MainActor
 final class HealthKitManager {
     /// Whether the user has granted HealthKit authorization.
-    var isAuthorized: Bool = false
+    private(set) var isAuthorized: Bool = false
     /// Whether a request is in flight.
-    var isRequesting: Bool = false
+    private(set) var isRequesting: Bool = false
     /// Last error message shown to the user, if any.
-    var lastError: String?
+    private(set) var lastError: String?
+
+    /// Cached result of `HKHealthStore.isHealthDataAvailable()` captured on init.
+    /// On iPad this may be `false` even when the app targets iPadOS; using a
+    /// stored value avoids repeatedly calling the HealthKit runtime.
+    let isAvailable: Bool
 
     /// Lazily-created HealthKit store. Only instantiated when HealthKit is
-    /// available on this device. Creating HKHealthStore when HealthKit is
-    /// unavailable triggers a runtime crash.
+    /// available on this device. Creating `HKHealthStore()` when HealthKit is
+    /// unavailable triggers a runtime crash, so this property is guarded.
     private var _store: HKHealthStore?
     private var storeCreationFailed: Bool = false
+
     private var store: HKHealthStore? {
-        if storeCreationFailed { return nil }
-        if let s = _store { return s }
+        guard !storeCreationFailed else { return nil }
+        if let existing = _store { return existing }
         guard isAvailable else {
             storeCreationFailed = true
             return nil
         }
-        let s = HKHealthStore()
-        _store = s
-        return s
+        let newStore = HKHealthStore()
+        _store = newStore
+        return newStore
     }
 
-    /// True if HealthKit is available on this device (simulator may return false).
-    var isAvailable: Bool {
-        HKHealthStore.isHealthDataAvailable()
-    }
-
-    // MARK: - Authorization
-
-    /// The types we want to READ from Apple Health.
+    /// The types we want to READ from Apple Health. Built defensively: any
+    /// unsupported type is omitted rather than force-unwrapped, preventing crashes
+    /// on devices where a given identifier isn't available.
     private var readTypes: Set<HKObjectType> {
-        var types: Set<HKObjectType> = [
-            HKObjectType.quantityType(forIdentifier: .bodyMass)!,
-            HKObjectType.quantityType(forIdentifier: .stepCount)!,
-            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
-            HKObjectType.quantityType(forIdentifier: .height)!,
-        ]
+        var types = Set<HKObjectType>()
+        if let bodyMass = HKObjectType.quantityType(forIdentifier: .bodyMass) {
+            types.insert(bodyMass)
+        }
+        if let stepCount = HKObjectType.quantityType(forIdentifier: .stepCount) {
+            types.insert(stepCount)
+        }
+        if let activeEnergy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) {
+            types.insert(activeEnergy)
+        }
+        if let height = HKObjectType.quantityType(forIdentifier: .height) {
+            types.insert(height)
+        }
         types.insert(HKObjectType.workoutType())
         return types
     }
 
-    /// The types we want to WRITE to Apple Health.
+    /// The types we want to WRITE to Apple Health. Built defensively: any
+    /// unsupported type is omitted rather than force-unwrapped.
     private var shareTypes: Set<HKSampleType> {
-        var types: Set<HKSampleType> = [
-            HKObjectType.quantityType(forIdentifier: .dietaryEnergyConsumed)!,
-            HKObjectType.quantityType(forIdentifier: .dietaryProtein)!,
-            HKObjectType.quantityType(forIdentifier: .dietaryCarbohydrates)!,
-            HKObjectType.quantityType(forIdentifier: .dietaryFatTotal)!,
-        ]
-        if let nutritionType = HKObjectType.correlationType(forIdentifier: .food) {
-            types.insert(nutritionType)
+        var types = Set<HKSampleType>()
+        if let energy = HKObjectType.quantityType(forIdentifier: .dietaryEnergyConsumed) {
+            types.insert(energy)
+        }
+        if let protein = HKObjectType.quantityType(forIdentifier: .dietaryProtein) {
+            types.insert(protein)
+        }
+        if let carbs = HKObjectType.quantityType(forIdentifier: .dietaryCarbohydrates) {
+            types.insert(carbs)
+        }
+        if let fat = HKObjectType.quantityType(forIdentifier: .dietaryFatTotal) {
+            types.insert(fat)
+        }
+        if let food = HKObjectType.correlationType(forIdentifier: .food) {
+            types.insert(food)
         }
         return types
     }
 
+    init() {
+        // Capture availability once on the main actor. This avoids any
+        // HealthKit runtime calls after we've determined it's unavailable.
+        isAvailable = HKHealthStore.isHealthDataAvailable()
+    }
+
+    // MARK: - Authorization
+
     /// Requests HealthKit authorization from the user. Presents the system
-    /// Health permission sheet. Safe to call multiple times.
+    /// Health permission sheet if HealthKit is available and the device supports
+    /// the requested types. Safe to call multiple times.
     func requestAuthorization() async {
         guard isAvailable else {
             lastError = HealthKitError.unavailable.errorDescription
             return
         }
+
+        let read = readTypes
+        let share = shareTypes
+        guard !read.isEmpty || !share.isEmpty else {
+            lastError = HealthKitError.typesUnavailable.errorDescription
+            return
+        }
+
         guard let healthStore = store else {
             lastError = HealthKitError.unavailable.errorDescription
             return
         }
+
         isRequesting = true
         lastError = nil
+        defer { isRequesting = false }
+
         do {
-            try await healthStore.requestAuthorization(toShare: shareTypes, read: readTypes)
-            isAuthorized = true
-            persistConnectionState(true)
+            try await healthStore.requestAuthorization(toShare: share, read: read)
+
+            // `requestAuthorization` does not throw on user denial, so check the
+            // actual authorization status after the sheet dismisses.
+            let allReadAuthorized = read.allSatisfy { healthStore.authorizationStatus(for: $0) == .sharingAuthorized }
+            let allShareAuthorized = share.allSatisfy { healthStore.authorizationStatus(for: $0) == .sharingAuthorized }
+            isAuthorized = (read.isEmpty || allReadAuthorized) && (share.isEmpty || allShareAuthorized)
+            persistConnectionState(isAuthorized)
+
+            if !isAuthorized {
+                lastError = "Permission to access Apple Health data was denied. You can enable it in Settings > Health > Data Access & Devices."
+            }
         } catch {
-            lastError = error.localizedDescription
             isAuthorized = false
+            persistConnectionState(false)
+            lastError = "Apple Health request failed: \(error.localizedDescription)"
         }
-        isRequesting = false
     }
 
     /// Disconnects from HealthKit (revokes our local flag — the system permission
@@ -142,7 +195,7 @@ final class HealthKitManager {
     func fetchLatestBodyMass(asOf date: Date = .distantFuture) async throws -> Double? {
         guard isAvailable, let healthStore = store else { throw HealthKitError.unavailable }
         guard let bodyMassType = HKObjectType.quantityType(forIdentifier: .bodyMass) else {
-            throw HealthKitError.queryFailed("body mass type unavailable")
+            throw HealthKitError.typesUnavailable
         }
 
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
@@ -176,7 +229,7 @@ final class HealthKitManager {
     func fetchSteps(on date: Date) async throws -> Int {
         guard isAvailable, let healthStore = store else { throw HealthKitError.unavailable }
         guard let stepType = HKObjectType.quantityType(forIdentifier: .stepCount) else {
-            throw HealthKitError.queryFailed("step type unavailable")
+            throw HealthKitError.typesUnavailable
         }
 
         let dayInterval = Calendar.current.dateInterval(of: .day, for: date) ?? DateInterval(start: date, duration: 86400)
@@ -205,7 +258,7 @@ final class HealthKitManager {
     func fetchActiveEnergy(on date: Date) async throws -> Int {
         guard isAvailable, let healthStore = store else { throw HealthKitError.unavailable }
         guard let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) else {
-            throw HealthKitError.queryFailed("energy type unavailable")
+            throw HealthKitError.typesUnavailable
         }
 
         let dayInterval = Calendar.current.dateInterval(of: .day, for: date) ?? DateInterval(start: date, duration: 86400)
@@ -342,7 +395,6 @@ final class HealthKitManager {
         do {
             try await healthStore.save(correlation)
         } catch {
-            // Non-fatal — we don't want logging to fail if HealthKit write fails.
             print("[HealthKitManager] Nutrition write failed: \(error.localizedDescription)")
         }
     }
