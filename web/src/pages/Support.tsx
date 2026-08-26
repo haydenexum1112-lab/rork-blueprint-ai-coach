@@ -32,7 +32,7 @@ const Support = () => {
           <section className="rounded-2xl border border-slate-200 bg-white p-8">
             <h2 className="mb-3 text-xl font-bold">Contact Us</h2>
             <p className="mb-2 text-slate-600">For any questions, bug reports, or feedback, email us at:</p>
-            <a href="mailto:support@phyziqai.app" className="font-bold text-[#00B2E0]">support@phyziqai.app</a>
+            <a href="mailto:myphyziqai@gmail.com" className="font-bold text-[#00B2E0]">myphyziqai@gmail.com</a>
             <p className="mt-3 text-sm text-slate-500">We aim to respond within 48 hours.</p>
           </section>
 

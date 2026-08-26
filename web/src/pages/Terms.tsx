@@ -153,7 +153,7 @@ const Terms = () => {
             <h2 className="mb-3 text-xl font-bold text-[#1a1a1a]">Contact</h2>
             <p>
               For questions about these Terms, email
-              <a href="mailto:support@phyziqai.app" className="text-[#00B2E0] font-semibold"> support@phyziqai.app</a>.
+              <a href="mailto:myphyziqai@gmail.com" className="text-[#00B2E0] font-semibold"> myphyziqai@gmail.com</a>.
             </p>
           </section>
         </div>

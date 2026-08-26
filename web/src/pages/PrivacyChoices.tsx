@@ -37,7 +37,7 @@ const PrivacyChoices = () => {
             </p>
             <p className="text-slate-600">
               To request a copy of any server-side account data (such as your auth profile), email
-              <a href="mailto:support@phyziqai.app?subject=Data Access Request" className="text-[#00B2E0] font-semibold"> support@phyziqai.app</a>
+              <a href="mailto:myphyziqai@gmail.com?subject=Data Access Request" className="text-[#00B2E0] font-semibold"> myphyziqai@gmail.com</a>
               with "Data Access Request" in the subject.
             </p>
           </section>
@@ -47,7 +47,7 @@ const PrivacyChoices = () => {
             <div className="space-y-3 text-slate-600">
               <p><strong>Physique photos, food photos, workout logs, and profile:</strong> Delete the PhyziqAi app from your iPhone. This immediately removes all locally stored data.</p>
               <p><strong>iCloud backup:</strong> Open PhyziqAi → Profile → Privacy & data → tap "Delete cloud backup." This removes all encrypted scan metadata from your iCloud account. Your on-device data is not affected.</p>
-              <p><strong>Server-side account data:</strong> Email <a href="mailto:support@phyziqai.app?subject=Data Deletion Request" className="text-[#00B2E0] font-semibold">support@phyziqai.app</a> with "Data Deletion Request" in the subject. We will permanently delete your account and associated server-side records within 30 days.</p>
+              <p><strong>Server-side account data:</strong> Email <a href="mailto:myphyziqai@gmail.com?subject=Data Deletion Request" className="text-[#00B2E0] font-semibold">myphyziqai@gmail.com</a> with "Data Deletion Request" in the subject. We will permanently delete your account and associated server-side records within 30 days.</p>
               <p><strong>Apple Health data:</strong> Go to the Health app → Summary → PhyziqAi → scroll to "Data Sources & Access" → tap "Delete All Recorded Data" or revoke access entirely.</p>
             </div>
           </section>
@@ -56,7 +56,7 @@ const PrivacyChoices = () => {
             <h2 className="mb-3 text-xl font-bold">Export Your Data</h2>
             <p className="mb-3 text-slate-600">
               To export your account data, email
-              <a href="mailto:support@phyziqai.app?subject=Data Export Request" className="text-[#00B2E0] font-semibold"> support@phyziqai.app</a>
+              <a href="mailto:myphyziqai@gmail.com?subject=Data Export Request" className="text-[#00B2E0] font-semibold"> myphyziqai@gmail.com</a>
               with "Data Export Request" in the subject. We will provide your server-side data in a portable format within 30 days.
             </p>
             <p className="text-slate-600">
