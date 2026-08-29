@@ -160,6 +160,9 @@ final class AuthManager {
 
             await exchangeCode(code)
         } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
+            // User dismissed the web auth sheet — not an error.
+            return
+        } catch AuthError.cancelledByUser {
             return
         } catch {
             setError(error.localizedDescription)
@@ -195,14 +198,31 @@ final class AuthManager {
         throw AuthError.popupTimeout
     }
 
+    @MainActor
     private func runWebAuthSession(authURL authURLString: String) async throws -> String {
         let callbackScheme = "rork-\(projectID)"
-        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-            guard let url = URL(string: authURLString) else {
-                continuation.resume(throwing: AuthError.invalidURL)
-                return
-            }
 
+        // ASWebAuthenticationSession.Error.presentationContextInvalid (code 3) means the
+        // window we handed to the session was not usable (e.g. app not yet active, or the
+        // anchor fallback produced an empty window). Wait for the app to become active
+        // with a valid window and retry once before giving up.
+        do {
+            return try await startWebAuthSession(url: URL(string: authURLString), callbackScheme: callbackScheme)
+        } catch let error as ASWebAuthenticationSessionError
+        where error.code == .presentationContextInvalid || error.code == .presentationContextNotProvided {
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .milliseconds(250))
+                if WebAuthPresentationContext.hasValidAnchor { break }
+            }
+            guard WebAuthPresentationContext.hasValidAnchor else { throw error }
+            return try await startWebAuthSession(url: URL(string: authURLString), callbackScheme: callbackScheme)
+        }
+    }
+
+    @MainActor
+    private func startWebAuthSession(url: URL?, callbackScheme: String) async throws -> String {
+        guard let url else { throw AuthError.invalidURL }
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
             let session = ASWebAuthenticationSession(
                 url: url,
                 callbackURLScheme: callbackScheme
@@ -362,10 +382,39 @@ enum AuthError: LocalizedError {
 class WebAuthPresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
     static let shared = WebAuthPresentationContext()
 
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
+    /// True when the app has a window we can legally present from. Starting the
+    /// session without one causes `presentationContextInvalid` (error 3), which
+    /// is how sign-in was failing during App Review.
+    @MainActor
+    static var hasValidAnchor: Bool {
+        !validWindows.isEmpty
+    }
+
+    /// Foreground-active scene windows first (key window preferred), falling
+    /// back to ANY attached window. Never returns an empty `ASPresentationAnchor()`.
+    @MainActor
+    private static var validWindows: [UIWindow] {
+        let allScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let allWindows = allScenes.flatMap { $0.windows }.filter { !$0.isHidden }
+        let activeWindows = allScenes
+            .filter { $0.activationState == .foregroundActive }
             .flatMap { $0.windows }
-            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
+            .filter { !$0.isHidden }
+
+        // 1. Key window of a foreground-active scene.
+        if let key = activeWindows.first(where: { $0.isKeyWindow }) { return [key] }
+        // 2. Any window of a foreground-active scene.
+        if let first = activeWindows.first { return [first] }
+        // 3. Key window of any attached scene.
+        if let key = allWindows.first(where: { $0.isKeyWindow }) { return [key] }
+        // 4. Any attached window at all.
+        if let first = allWindows.first { return [first] }
+        return []
+    }
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        // Sessions are only started after `hasValidAnchor` confirms a live window,
+        // and we wait up to 5s for one on retry — so this should never fall through.
+        Self.validWindows.first ?? ASPresentationAnchor()
     }
 }

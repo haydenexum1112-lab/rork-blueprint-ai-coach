@@ -7,8 +7,6 @@ struct HomeView: View {
 
     @State private var showGoalSetup: Bool = false
     @State private var showScanFlow: Bool = false
-    @State private var isLoadingSample: Bool = false
-    @State private var sampleError: String?
     @State private var showNotificationPrompt: Bool = false
 
     var body: some View {
@@ -31,20 +29,6 @@ struct HomeView: View {
                 } else {
                     PlanView(showScanFlow: $showScanFlow)
                 }
-
-                if isLoadingSample {
-                    ZStack {
-                        Color.black.opacity(0.4).ignoresSafeArea()
-                        VStack(spacing: 14) {
-                            SwiftUI.ProgressView()
-                                .tint(Theme.accent)
-                                .scaleEffect(1.2)
-                            Text("Loading sample data…")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundStyle(Theme.textPrimary)
-                        }
-                    }
-                }
             }
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -62,11 +46,6 @@ struct HomeView: View {
             }
             .fullScreenCover(isPresented: $showScanFlow) {
                 ScanFlowView()
-            }
-            .alert("Couldn't load sample", isPresented: .constant(sampleError != nil)) {
-                Button("OK") { sampleError = nil }
-            } message: {
-                Text(sampleError ?? "")
             }
             .onAppear {
                 appState.ensurePlanMatchesProfile()
@@ -125,31 +104,9 @@ struct HomeView: View {
                     showGoalSetup = true
                 }
                 .buttonStyle(PrimaryButtonStyle())
-
-                Button("Load sample photos") {
-                    Haptics.impact(.light)
-                    loadSample()
-                }
-                .buttonStyle(SecondaryButtonStyle())
-                .disabled(isLoadingSample)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 16)
-        }
-    }
-
-    private func loadSample() {
-        guard !isLoadingSample else { return }
-        isLoadingSample = true
-        Task {
-            do {
-                try await SampleDataLoader.loadSampleData(into: appState)
-                Haptics.success()
-            } catch {
-                Haptics.warning()
-                sampleError = error.localizedDescription
-            }
-            isLoadingSample = false
         }
     }
 }
