@@ -8,6 +8,7 @@ struct NutritionTabView: View {
     @State private var selectedDayIndex: Int = 0
     @State private var showSurvey: Bool = false
     @State private var showPaywall: Bool = false
+    @State private var showSources: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -25,8 +26,22 @@ struct NutritionTabView: View {
             }
             .navigationTitle("Nutrition")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Sources") {
+                        Haptics.impact(.light)
+                        showSources = true
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .accessibilityLabel("Nutrition sources and references")
+                }
+            }
             .sheet(isPresented: $showSurvey) {
                 NutritionSurveyView()
+            }
+            .sheet(isPresented: $showSources) {
+                NutritionSourcesSheet()
             }
             .sheet(isPresented: $showPaywall) {
                 PaywallView()
@@ -56,7 +71,7 @@ struct NutritionTabView: View {
                     Text("Nutrition")
                         .font(.displayFont(30))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("BLUEPRINT ADD-ON")
+                    Text("PHYZIQAI ADD-ON")
                         .font(.system(size: 11, weight: .black))
                         .tracking(4)
                         .foregroundStyle(Color.black)
@@ -86,7 +101,7 @@ struct NutritionTabView: View {
                     Text("$7.99")
                         .font(.system(size: 32, weight: .black, design: .rounded))
                         .foregroundStyle(Theme.textPrimary)
-                    Text("per month · 3 days free")
+                    Text("per month · 7 days free")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -101,7 +116,7 @@ struct NutritionTabView: View {
                 .buttonStyle(PrimaryButtonStyle())
                 .padding(.horizontal, 20)
 
-                Text("3-day free trial, then $7.99/month. Cancel anytime.")
+                Text("7-day free trial, then $7.99/month. Cancel anytime.")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.textSecondary.opacity(0.7))
                     .multilineTextAlignment(.center)
@@ -220,6 +235,7 @@ struct NutritionTabView: View {
                             mealList(day: day)
                             FoodLogView()
                             DisclaimerFooter()
+                            NutritionSourcesCard()
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 12)

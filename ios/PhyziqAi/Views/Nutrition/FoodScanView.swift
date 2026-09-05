@@ -52,6 +52,10 @@ struct FoodScanView: View {
                     if let error = errorMessage {
                         errorView(error)
                     }
+
+                    if !editableItems.isEmpty {
+                        NutritionSourcesCard()
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 60)

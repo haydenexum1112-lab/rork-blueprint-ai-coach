@@ -128,6 +128,8 @@ struct NutritionSurveyView: View {
                 case .cooking:
                     cookingStep
                 }
+
+                NutritionSourcesCard()
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 100)

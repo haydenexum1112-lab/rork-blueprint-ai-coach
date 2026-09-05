@@ -123,7 +123,7 @@ struct OnboardingView: View {
                         .background(Circle().fill(Theme.surface))
                 }
                 Spacer()
-                Text("BLUEPRINT")
+                Text("PHYZIQAI")
                     .font(.system(size: 13, weight: .black))
                     .tracking(4)
                     .foregroundStyle(Theme.accent)
