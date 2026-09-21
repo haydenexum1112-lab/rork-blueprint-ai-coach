@@ -155,17 +155,16 @@ struct FoodLogView: View {
         .blueprintCard()
     }
 
-    /// Rough calorie target derived from bodyweight + profile (not a medical prescription).
+    /// Personalized calorie target from body stats + goal (not a medical prescription).
     private var dailyCalorieTarget: Int {
         guard let p = appState.profile else { return 2400 }
-        // Maintenance ≈ bodyweight (kg) × 33 for active adults
-        return Int(p.weightKg * 33)
+        return NutritionTargetsCalculator.targets(for: p).calories
     }
 
     private var dailyProteinTarget: Int {
         guard let p = appState.profile else { return 150 }
         // 1.8 g/kg for muscle building
-        return Int(p.weightKg * 1.8)
+        return NutritionTargetsCalculator.targets(for: p).proteinGrams
     }
 
     private var dailyCarbTarget: Int {

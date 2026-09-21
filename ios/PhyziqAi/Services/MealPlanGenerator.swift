@@ -1,17 +1,20 @@
 import Foundation
 
-/// Generates a daily meal plan from saved nutrition preferences.
-/// Sample-based for v1 — swap with AI generation later.
+/// Generates a daily meal plan from saved nutrition preferences and the
+/// user's body stats. Daily calories/macros come from
+/// `NutritionTargetsCalculator` (Mifflin-St Jeor + goal adjustment); each
+/// meal gets a proportional share and portion labels scale to match.
 enum MealPlanGenerator {
 
-    static func generateWeek(prefs: NutritionPreferences) -> [DailyMealPlan] {
+    static func generateWeek(prefs: NutritionPreferences, profile: UserProfile?) -> [DailyMealPlan] {
         let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
         return dayNames.enumerated().map { index, name in
-            generateDay(prefs: prefs, dayName: name, dayIndex: index)
+            generateDay(prefs: prefs, profile: profile, dayName: name, dayIndex: index)
         }
     }
 
-    static func generateDay(prefs: NutritionPreferences, dayName: String, dayIndex: Int) -> DailyMealPlan {
+    static func generateDay(prefs: NutritionPreferences, profile: UserProfile?, dayName: String, dayIndex: Int) -> DailyMealPlan {
+        let targets = profile.map { NutritionTargetsCalculator.targets(for: $0) } ?? NutritionTargetsCalculator.fallback
         let liked = foods(from: prefs.likedFoodIds)
         let dislikedIds = Set(prefs.dislikedFoodIds)
         let blockedTags = Set(prefs.allergens.flatMap { allergenTags(for: $0) })
@@ -36,6 +39,7 @@ enum MealPlanGenerator {
 
         let meals = buildMeals(
             frequency: prefs.mealFrequency,
+            targets: targets,
             proteinFoods: proteinFoods,
             carbFoods: carbFoods,
             fatFoods: fatFoods,
@@ -61,6 +65,7 @@ enum MealPlanGenerator {
 
     private static func buildMeals(
         frequency: MealFrequency,
+        targets: DailyNutritionTargets,
         proteinFoods: [FoodItem],
         carbFoods: [FoodItem],
         fatFoods: [FoodItem],
@@ -83,6 +88,23 @@ enum MealPlanGenerator {
             times = ["7:30 AM", "10:30 AM", "1:00 PM", "4:00 PM", "7:00 PM"]
         }
 
+        // Calorie distribution across the day — breakfast ~25%, lunch ~30%,
+        // dinner ~30%, snacks split the rest (fractions sum to 1.0).
+        let snackCount = names.filter { $0 == "Snack" }.count
+        let snackShare = 0.15 / Double(max(snackCount, 1))
+        let fractions: [Double] = names.map { name in
+            switch name {
+            case "Breakfast": return 0.25
+            case "Lunch": return 0.30
+            case "Dinner": return snackCount == 0 ? 0.40 : 0.30
+            default: return snackShare
+            }
+        }
+
+        let calorieShares = allocate(targets.calories, fractions: fractions)
+        let proteinShares = allocate(targets.proteinGrams, fractions: fractions)
+        let isLowCarb = lowCarbDiet(dietStyle)
+
         for (i, name) in names.enumerated() {
             let protein = pick(proteinFoods, offset: dayIndex + i, fallback: FoodItem(id: "eggs", name: "Eggs", emoji: "🥚", tags: ["protein"]))
             let carb = pick(carbFoods.isEmpty ? produceFoods : carbFoods, offset: dayIndex + i + 1, fallback: FoodItem(id: "rice", name: "Rice", emoji: "🍚", tags: ["carb"]))
@@ -91,7 +113,6 @@ enum MealPlanGenerator {
 
             let isBreakfast = i == 0
             let isSnack = name == "Snack"
-            let isLowCarb = lowCarbDiet(dietStyle)
 
             let title: String
             if isSnack {
@@ -102,42 +123,36 @@ enum MealPlanGenerator {
                 title = "\(protein.emoji) \(protein.name) with \(carb.emoji) \(carb.name) & \(produce.emoji) \(produce.name)"
             }
 
-            let items: [String]
-            let calories: Int
-            let proteinG: Int
-            let carbsG: Int
-            let fatG: Int
+            let template = templateMacros(isSnack: isSnack, isBreakfast: isBreakfast, lowCarb: isLowCarb)
+            let calories = calorieShares[i]
+            let proteinG = proteinShares[i]
+            // Fill remaining calories with carbs + fat, preserving the template's
+            // macro shape so keto/low-carb plans stay low-carb at any calorie level.
+            let remaining = max(calories - proteinG * 4, 0)
+            let baseRemaining = max(template.calories - template.protein * 4, 1)
+            let scale = Double(remaining) / Double(baseRemaining)
+            let carbsG = Int((Double(template.carbs) * scale).rounded())
+            let fatG = Int((Double(template.fat) * scale).rounded())
 
+            let items: [String]
             if isSnack {
                 items = [
-                    "\(protein.name) (1 serving)",
-                    "\(carb.name) (1 serving)"
+                    "\(protein.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
+                    "\(carb.name) (\(servingLabel(scaleTo: calories, base: template.calories)))"
                 ]
-                calories = isLowCarb ? 340 : 320
-                proteinG = isLowCarb ? 32 : 28
-                carbsG = isLowCarb ? 10 : 34
-                fatG = isLowCarb ? 20 : 10
             } else if isBreakfast {
                 items = [
-                    "\(carb.name) (1 serving)",
-                    "\(protein.name) (1 serving)",
+                    "\(carb.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
+                    "\(protein.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
                     "\(produce.name) (½ cup)"
                 ]
-                calories = isLowCarb ? 460 : 480
-                proteinG = isLowCarb ? 38 : 35
-                carbsG = isLowCarb ? 14 : 55
-                fatG = isLowCarb ? 28 : 14
             } else {
                 items = [
-                    "\(protein.name) (5 oz)",
-                    "\(carb.name) (1 cup)",
+                    "\(protein.name) (\(ounceLabel(scaleTo: calories, base: template.calories)))",
+                    "\(carb.name) (\(cupLabel(scaleTo: calories, base: template.calories)))",
                     "\(produce.name) (1 cup)",
-                    "\(fat.name) (1 tbsp)"
+                    "\(fat.name) (\(tbspLabel(scaleTo: calories, base: template.calories)))"
                 ]
-                calories = isLowCarb ? 580 : 560
-                proteinG = isLowCarb ? 46 : 42
-                carbsG = isLowCarb ? 16 : 52
-                fatG = isLowCarb ? 32 : 18
             }
 
             meals.append(MealPlanEntry(
@@ -154,6 +169,100 @@ enum MealPlanGenerator {
 
         return meals
     }
+
+    // MARK: - Template macros (shape used for scaling)
+
+    private struct TemplateMacros {
+        let calories: Int
+        let protein: Int
+        let carbs: Int
+        let fat: Int
+    }
+
+    /// Base macros at reference portions; used to keep macro ratios stable
+    /// while calories scale to the personalized target.
+    private static func templateMacros(isSnack: Bool, isBreakfast: Bool, lowCarb: Bool) -> TemplateMacros {
+        if isSnack {
+            return lowCarb
+                ? TemplateMacros(calories: 340, protein: 32, carbs: 10, fat: 20)
+                : TemplateMacros(calories: 320, protein: 28, carbs: 34, fat: 10)
+        } else if isBreakfast {
+            return lowCarb
+                ? TemplateMacros(calories: 460, protein: 38, carbs: 14, fat: 28)
+                : TemplateMacros(calories: 480, protein: 35, carbs: 55, fat: 14)
+        } else {
+            return lowCarb
+                ? TemplateMacros(calories: 580, protein: 46, carbs: 16, fat: 32)
+                : TemplateMacros(calories: 560, protein: 42, carbs: 52, fat: 18)
+        }
+    }
+
+    // MARK: - Allocation & portion helpers
+
+    /// Splits `total` across `fractions` (must sum to ~1.0) with integer
+    /// rounding; the last share absorbs rounding drift so the sum matches.
+    private static func allocate(_ total: Int, fractions: [Double]) -> [Int] {
+        var result: [Int] = []
+        var assigned = 0
+        for (i, fraction) in fractions.enumerated() {
+            if i == fractions.count - 1 {
+                result.append(max(total - assigned, 0))
+            } else {
+                let value = Int((Double(total) * fraction).rounded())
+                assigned += value
+                result.append(value)
+            }
+        }
+        return result
+    }
+
+    private static func scaleFactor(scaleTo calories: Int, base: Int) -> Double {
+        Double(calories) / Double(max(base, 1))
+    }
+
+    /// "1 serving", "1½ servings", "2 servings" — rounded to the nearest half.
+    private static func servingLabel(scaleTo calories: Int, base: Int) -> String {
+        let amount = max((scaleFactor(scaleTo: calories, base: base) * 2).rounded() / 2, 0.5)
+        let label = fractionLabel(amount)
+        return amount > 1 ? "\(label) servings" : "\(label) serving"
+    }
+
+    /// "3 oz", "5 oz", "6½ oz" — protein portions for main meals, min 3 oz.
+    private static func ounceLabel(scaleTo calories: Int, base: Int) -> String {
+        let ounces = max((scaleFactor(scaleTo: calories, base: base) * 5 * 2).rounded() / 2, 3)
+        return "\(fractionLabel(ounces)) oz"
+    }
+
+    /// "1 cup", "1½ cups" — carb portions for main meals, min ½ cup.
+    private static func cupLabel(scaleTo calories: Int, base: Int) -> String {
+        let cups = max((scaleFactor(scaleTo: calories, base: base) * 4).rounded() / 4, 0.5)
+        let label = fractionLabel(cups)
+        return cups > 1 ? "\(label) cups" : "\(label) cup"
+    }
+
+    /// "1 tbsp", "1½ tbsp", "2 tbsp" — fat portions, min ½ tbsp.
+    private static func tbspLabel(scaleTo calories: Int, base: Int) -> String {
+        let tbsp = max((scaleFactor(scaleTo: calories, base: base) * 2).rounded() / 2, 0.5)
+        return "\(fractionLabel(tbsp)) tbsp"
+    }
+
+    /// Rounds to the nearest quarter and renders as a friendly fraction ("1½").
+    private static func fractionLabel(_ amount: Double) -> String {
+        let quarter = (amount * 4).rounded() / 4
+        let whole = Int(quarter.rounded(.down))
+        let frac = quarter - Double(whole)
+        let fracSymbol: String
+        switch frac {
+        case 0.26..<0.5: fracSymbol = "¼"
+        case 0.51..<0.75: fracSymbol = "½"
+        case 0.76..<1.0: fracSymbol = "¾"
+        default: fracSymbol = ""
+        }
+        if whole == 0 { return fracSymbol.isEmpty ? "0" : fracSymbol }
+        return "\(whole)\(fracSymbol)"
+    }
+
+    // MARK: - Catalog filtering (unchanged)
 
     private static func pick(_ items: [FoodItem], offset: Int, fallback: FoodItem) -> FoodItem {
         guard !items.isEmpty else { return fallback }

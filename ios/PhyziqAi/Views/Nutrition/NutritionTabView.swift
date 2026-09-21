@@ -222,7 +222,7 @@ struct NutritionTabView: View {
     private var planView: some View {
         Group {
             if let prefs = appState.nutritionPreferences {
-                let week = MealPlanGenerator.generateWeek(prefs: prefs)
+                let week = MealPlanGenerator.generateWeek(prefs: prefs, profile: appState.profile)
                 let day = week[selectedDayIndex]
                 VStack(spacing: 0) {
                     if let daysLeft = appState.trialDaysLeft, appState.hasNutritionAccess {
@@ -283,6 +283,12 @@ struct NutritionTabView: View {
                 macroTile(value: "\(day.totalProtein)g", label: "Protein", tint: Theme.success)
                 macroTile(value: "\(day.totalCarbs)g", label: "Carbs", tint: Theme.warning)
                 macroTile(value: "\(day.totalFat)g", label: "Fat", tint: Color.purple)
+            }
+
+            if appState.profile != nil {
+                Text("Calculated from your body stats, activity & goals")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textSecondary)
             }
 
             HStack(spacing: 8) {

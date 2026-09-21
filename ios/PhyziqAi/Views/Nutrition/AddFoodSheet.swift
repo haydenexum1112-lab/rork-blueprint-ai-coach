@@ -135,7 +135,7 @@ struct AddFoodSheet: View {
                let prefs = appState.nutritionPreferences {
                 let weekIndex = (Calendar.current.component(.weekday, from: date) + 5) % 7
                 let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-                let plan = MealPlanGenerator.generateDay(prefs: prefs, dayName: dayNames[weekIndex], dayIndex: weekIndex)
+                let plan = MealPlanGenerator.generateDay(prefs: prefs, profile: appState.profile, dayName: dayNames[weekIndex], dayIndex: weekIndex)
                 VStack(alignment: .leading, spacing: 10) {
                     Text("FROM YOUR PLAN")
                         .font(.system(size: 11, weight: .black))

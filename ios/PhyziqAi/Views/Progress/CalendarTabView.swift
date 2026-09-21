@@ -524,7 +524,7 @@ private struct DayDetailSheet: View {
             } else if let prefs = appState.nutritionPreferences, let date = calendar.date(from: dayComponents) {
                 let weekIndex = (calendar.component(.weekday, from: date) + 5) % 7 // Mon=0
                 let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-                let plan = MealPlanGenerator.generateDay(prefs: prefs, dayName: dayNames[weekIndex], dayIndex: weekIndex)
+                let plan = MealPlanGenerator.generateDay(prefs: prefs, profile: appState.profile, dayName: dayNames[weekIndex], dayIndex: weekIndex)
                 VStack(spacing: 10) {
                     HStack {
                         Text(dayNames[weekIndex])
