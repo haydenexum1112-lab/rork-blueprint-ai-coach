@@ -75,14 +75,18 @@ nonisolated struct FoodScanResult: Codable, Hashable {
 /// and estimate macros — same pattern as physique analysis but with a food-focused prompt.
 nonisolated enum FoodScanService {
     static let modelId = "openai/gpt-4o"
-    private static let imageByteBudget = 420_000
+    /// Compression budget — kept high (~840 KB) so the model gets enough detail to
+    /// distinguish similar-looking foods (nuggets vs tater tots etc.).
+    private static let imageByteBudget = 840_000
 
     private static let systemPrompt = """
     You are PhyziqAi Food Scan, an expert nutritionist AI. You analyze photos of meals and food, identify what's on the plate, and estimate portion sizes and macronutrients (calories, protein, carbs, fat).
 
     STRICT RULES:
-    - Be honest and conservative with estimates. If you can't clearly see the food, say so.
-    - Estimate portions based on typical serving sizes visible in the photo.
+    - Estimate realistically — do not lowball. Account for hidden calories from cooking oil, batter, breading, butter, dressings, and sauces, especially in fried and restaurant food (these often add 100-400+ kcal per serving that isn't visible).
+    - Look closely at the photo. Many fried foods look alike — chicken nuggets, tater tots, fries, mozzarella sticks, and hash browns are frequently confused. Distinguish them using shape, size, texture, coating, and surrounding items (dips, plates, sides) — never color alone.
+    - If you're unsure what a food is, pick the single most likely option and set its confidence to "estimate". Do not guess a high-confidence answer.
+    - If an item looks like a packaged, branded, or labeled product (bag, box, wrapper, label visible), set its confidence to "estimate" — the barcode scanner is more accurate for those.
     - If the photo doesn't contain food (e.g. it's a landscape, a person, a random object), return the no-food response.
     - Respond with ONLY a single valid JSON object. No markdown, no code fences, no commentary.
 
@@ -295,7 +299,10 @@ nonisolated enum FoodScanService {
     private static func imagePart(_ jpegData: Data) -> [String: Any] {
         [
             "type": "image_url",
-            "image_url": ["url": "data:image/jpeg;base64,\(jpegData.base64EncodedString())"],
+            "image_url": [
+                "url": "data:image/jpeg;base64,\(jpegData.base64EncodedString())",
+                "detail": "high",
+            ],
         ]
     }
 
