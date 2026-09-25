@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 /// Nutrition tab — weekly meal plan gated behind a monthly add-on subscription.
 struct NutritionTabView: View {
@@ -48,10 +49,61 @@ struct NutritionTabView: View {
                     .environment(appState)
                     .environment(store)
             }
+            .task {
+                await store.refreshIntroOfferEligibility()
+            }
         }
     }
 
     // MARK: - Locked (no subscription)
+
+    /// Live monthly price for the Nutrition add-on (no hardcoded numbers).
+    private var nutritionMonthlyProduct: Product? {
+        store.product(for: .nutrition, annual: false)
+    }
+
+    /// Only claim a free trial when StoreKit confirms the offer applies to this user.
+    private var nutritionTrialApplies: Bool {
+        guard let product = nutritionMonthlyProduct else { return false }
+        return store.isEligibleForTrial(product)
+    }
+
+    @ViewBuilder
+    private var nutritionPriceBlock: some View {
+        if let product = nutritionMonthlyProduct {
+            VStack(spacing: 8) {
+                Text(product.displayPrice)
+                    .font(.system(size: 32, weight: .black, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
+                if nutritionTrialApplies, let trial = store.trialText(for: product) {
+                    Text("per month · \(trial)")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                } else {
+                    Text("per month")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+        } else {
+            VStack(spacing: 8) {
+                ProgressView()
+                Text("Loading price")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+        }
+    }
+
+    /// Apple-required disclosure: trial length, then real price + period from StoreKit.
+    private var nutritionDisclosure: String? {
+        guard let product = nutritionMonthlyProduct else { return nil }
+        let price = "\(product.displayPrice)/\(store.periodWord(for: product))"
+        if nutritionTrialApplies, let trial = store.trialText(for: product) {
+            return "\(trial), then \(price). Cancel anytime."
+        }
+        return "\(price). Cancel anytime."
+    }
 
     private var lockedView: some View {
         ScrollView {
@@ -97,14 +149,7 @@ struct NutritionTabView: View {
                         )
                 )
 
-                VStack(spacing: 8) {
-                    Text("$7.99")
-                        .font(.system(size: 32, weight: .black, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                    Text("per month · 7 days free")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
-                }
+                nutritionPriceBlock
 
                 Button {
                     Haptics.impact(.light)
@@ -116,11 +161,18 @@ struct NutritionTabView: View {
                 .buttonStyle(PrimaryButtonStyle())
                 .padding(.horizontal, 20)
 
-                Text("7-day free trial, then $7.99/month. Cancel anytime.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.textSecondary.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+                if let disclosure = nutritionDisclosure {
+                    Text(disclosure)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                } else {
+                    Text("Loading plan details…")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.textSecondary.opacity(0.7))
+                        .padding(.horizontal, 40)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 40)

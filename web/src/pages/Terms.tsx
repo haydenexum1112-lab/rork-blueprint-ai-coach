@@ -81,7 +81,7 @@ const Terms = () => {
             <h2 className="mb-3 text-xl font-bold text-[#1a1a1a]">Subscriptions</h2>
             <div className="space-y-3 text-sm">
               <p><strong>PhyziqAi Pro</strong> — $7.99/month with a 7-day free trial. Unlocks the full weekly training plan, exercise details, and progress tracking.</p>
-              <p><strong>Nutrition Add-on</strong> — $7.99/month with a 3-day free trial. Unlocks AI meal planning, food photo scanning, barcode scanning, and full nutrition tracking.</p>
+              <p><strong>Nutrition Add-on</strong> — $7.99/month with a 7-day free trial. Unlocks AI meal planning, food photo scanning, barcode scanning, and full nutrition tracking.</p>
               <p>
                 Subscriptions auto-renew unless cancelled at least 24 hours before the end of the current
                 billing period. You can manage or cancel subscriptions in your iPhone Settings → Apple ID →

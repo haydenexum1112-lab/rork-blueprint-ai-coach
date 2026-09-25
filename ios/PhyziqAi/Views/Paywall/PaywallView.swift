@@ -1,8 +1,10 @@
 import SwiftUI
 import StoreKit
 
-/// Unified paywall — "Choose Your Plan" with 3 tiers and 7-day free trial.
-/// Wired to StoreKit 2 via StoreManager for real in-app purchases.
+/// Unified paywall — "Choose Your Plan" with 3 tiers.
+/// Every price, trial length, and billing period shown here comes live from
+/// StoreKit, so the UI always matches the real App Store products and the
+/// purchase button charges exactly what the selected card displays.
 struct PaywallView: View {
     @Environment(AppState.self) private var appState
     @Environment(StoreManager.self) private var store
@@ -18,34 +20,38 @@ struct PaywallView: View {
     @State private var billing: BillingPeriod = .annual
     @State private var appeared: Bool = false
 
-    /// Live price from StoreKit, falling back to hardcoded display if products not yet fetched.
-    private var priceForTier: String {
-        let annual = billing == .annual
-        if let price = store.priceString(for: selectedTier, annual: annual) {
-            return annual ? "\(price)/yr" : "\(price)/mo"
-        }
-        switch (selectedTier, billing) {
-        case (.workouts, .monthly): return "$12.99/mo"
-        case (.workouts, .annual): return "$79/yr"
-        case (.nutrition, .monthly): return "$7.99/mo"
-        case (.nutrition, .annual): return "$49/yr"
-        case (.everything, .monthly): return "$16.99/mo"
-        case (.everything, .annual): return "$99/yr"
-        }
+    // MARK: - StoreKit-derived values (no hardcoded prices anywhere)
+
+    private var selectedProduct: Product? {
+        store.product(for: selectedTier, annual: billing == .annual)
     }
 
-    private var effectiveMonthly: String? {
-        guard billing == .annual else { return nil }
-        switch selectedTier {
-        case .workouts: return "$6.58/mo"
-        case .nutrition: return "$4.08/mo"
-        case .everything: return "$8.25/mo"
-        }
+    /// Trial days for the selected plan (nil = no intro offer configured).
+    private var selectedTrialDays: Int? {
+        selectedProduct.flatMap { store.introOfferDays(for: $0) }
     }
 
-    private var savingsText: String? {
-        guard selectedTier == .everything else { return nil }
-        return "Save 18% vs separate"
+    /// Only claim a free trial when StoreKit says the product has one AND the user is eligible.
+    private var trialApplies: Bool {
+        guard let product = selectedProduct, let days = selectedTrialDays, days > 0 else { return false }
+        return store.isEligibleForTrial(product)
+    }
+
+    private var buttonTitle: String {
+        if trialApplies, let days = selectedTrialDays {
+            return "Start \(days)-day free trial"
+        }
+        return "Subscribe"
+    }
+
+    /// Apple-required disclosure: trial length, then real price + period.
+    private var disclosureText: String? {
+        guard let product = selectedProduct else { return nil }
+        let price = "\(product.displayPrice)/\(store.periodWord(for: product))"
+        if trialApplies, let trial = store.trialText(for: product) {
+            return "\(trial), then \(price). Cancel anytime in Settings."
+        }
+        return "\(price). Cancel anytime in Settings."
     }
 
     var body: some View {
@@ -76,10 +82,16 @@ struct PaywallView: View {
                                 .font(.system(size: 12, weight: .black))
                                 .tracking(5)
                                 .foregroundStyle(Theme.accent)
-                            Text("7 days free.\nThen unlock everything.")
-                                .font(.displayFont(34))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineSpacing(2)
+                            if trialApplies, let days = selectedTrialDays {
+                                Text("\(days) days free.\nThen unlock everything.")
+                                    .font(.displayFont(34))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .lineSpacing(2)
+                            } else {
+                                Text("Unlock everything.")
+                                    .font(.displayFont(34))
+                                    .foregroundStyle(Theme.textPrimary)
+                            }
                         }
                         .opacity(appeared ? 1 : 0)
                         .offset(y: appeared ? 0 : 14)
@@ -124,13 +136,13 @@ struct PaywallView: View {
                             ProgressView()
                                 .tint(.white)
                             } else {
-                            Text("Start 7-day free trial")
+                            Text(buttonTitle)
                             }
                         }
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryButtonStyle())
-                    .disabled(store.isPurchasing || store.isLoading)
+                    .disabled(store.isPurchasing || store.isLoading || selectedProduct == nil)
 
                     Button("Restore purchases") {
                         Task {
@@ -146,10 +158,16 @@ struct PaywallView: View {
                     .foregroundStyle(Theme.textSecondary)
                     .disabled(store.isPurchasing)
 
-                    Text("Free for 7 days, then \(priceForTier). Cancel anytime in Settings.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Theme.textSecondary.opacity(0.7))
-                        .multilineTextAlignment(.center)
+                    if let disclosure = disclosureText {
+                        Text(disclosure)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                    } else {
+                        Text("Loading plan details…")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.7))
+                    }
 
                     HStack(spacing: 16) {
                         Link("Terms of Use", destination: URL(string: "https://65qn5mmc0o8br1jaq624d-web.rork.live/terms")!)
@@ -166,6 +184,9 @@ struct PaywallView: View {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.85).delay(0.1)) {
                 appeared = true
             }
+        }
+        .task(id: "\(selectedTier.rawValue)-\(billing.rawValue)") {
+            await store.refreshIntroOfferEligibility()
         }
         .alert("Purchase Error", isPresented: .init(
             get: { store.errorMessage != nil },
@@ -230,16 +251,14 @@ struct PaywallView: View {
                 }
 
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(tierPriceText(tier))
-                        .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                    if let savingsText, tier == .everything {
-                        Text(savingsText)
+                    tierPriceView(tier)
+                    if let savings = store.savingsText(for: tier) {
+                        Text(savings)
                             .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(Theme.success)
                     }
                     Spacer()
-                    if let eff = effectiveMonthlyFor(tier) {
+                    if let eff = store.effectiveMonthlyText(for: tier), billing == .annual {
                         Text(eff)
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Theme.textSecondary)
@@ -258,6 +277,19 @@ struct PaywallView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    /// Live price from StoreKit; a spinner while products load — never a typed-in number.
+    @ViewBuilder
+    private func tierPriceView(_ tier: SubscriptionTier) -> some View {
+        if let product = store.product(for: tier, annual: billing == .annual) {
+            Text("\(product.displayPrice)\(store.billingSuffix(for: product))")
+                .font(.system(size: 22, weight: .black, design: .rounded))
+                .foregroundStyle(Theme.textPrimary)
+        } else {
+            ProgressView()
+                .controlSize(.small)
+        }
     }
 
     private func tierBenefits(_ tier: SubscriptionTier) -> [String] {
@@ -287,29 +319,5 @@ struct PaywallView: View {
 
     private func tierBadge(_ tier: SubscriptionTier) -> String? {
         tier == .everything ? "BEST VALUE" : nil
-    }
-
-    private func tierPriceText(_ tier: SubscriptionTier) -> String {
-        let annual = billing == .annual
-        if let price = store.priceString(for: tier, annual: annual) {
-            return annual ? "\(price)/yr" : "\(price)/mo"
-        }
-        switch (tier, billing) {
-        case (.workouts, .monthly): return "$12.99/mo"
-        case (.workouts, .annual): return "$79/yr"
-        case (.nutrition, .monthly): return "$7.99/mo"
-        case (.nutrition, .annual): return "$49/yr"
-        case (.everything, .monthly): return "$16.99/mo"
-        case (.everything, .annual): return "$99/yr"
-        }
-    }
-
-    private func effectiveMonthlyFor(_ tier: SubscriptionTier) -> String? {
-        guard billing == .annual else { return nil }
-        switch tier {
-        case .workouts: return "$6.58/mo billed yearly"
-        case .nutrition: return "$4.08/mo billed yearly"
-        case .everything: return "$8.25/mo billed yearly"
-        }
     }
 }

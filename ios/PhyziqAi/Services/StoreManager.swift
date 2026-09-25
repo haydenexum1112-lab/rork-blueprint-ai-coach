@@ -102,10 +102,117 @@ final class StoreManager {
                 products[product.id] = product
             }
             print("[StoreManager] Fetched \(storeProducts.count) products")
+            await refreshIntroOfferEligibility()
         } catch {
             print("[StoreManager] Failed to fetch products: \(error.localizedDescription)")
             errorMessage = "Couldn't load subscription options. Try again later."
         }
+    }
+
+    // MARK: - Pricing & Trial (all display text comes from StoreKit)
+
+    /// Intro-offer eligibility per product ID ("can this user get the free trial?").
+    private(set) var introOfferEligibility: [String: Bool] = [:]
+
+    /// Refreshes eligibility for every product that has an introductory offer.
+    func refreshIntroOfferEligibility() async {
+        var result: [String: Bool] = [:]
+        for (id, product) in products {
+            guard let subscription = product.subscription,
+                  subscription.introductoryOffer != nil else { continue }
+            result[id] = await subscription.isEligibleForIntroOffer
+        }
+        introOfferEligibility = result
+    }
+
+    /// Whether the given product's free trial actually applies to this user.
+    func isEligibleForTrial(_ product: Product) -> Bool {
+        introOfferEligibility[product.id] ?? false
+    }
+
+    /// Trial length in days from the product's introductory offer (1 week → 7 days).
+    func introOfferDays(for product: Product) -> Int? {
+        guard let offer = product.subscription?.introductoryOffer,
+              offer.paymentMode == .freeTrial else { return nil }
+        let period = offer.period
+        switch period.unit {
+        case .day: return period.value
+        case .week: return period.value * 7
+        case .month: return period.value * 30
+        case .year: return period.value * 365
+        @unknown default: return nil
+        }
+    }
+
+    /// "7-day free trial" — derived from StoreKit so it always matches ASC.
+    func trialText(for product: Product) -> String? {
+        guard let offer = product.subscription?.introductoryOffer,
+              offer.paymentMode == .freeTrial else { return nil }
+        let period = offer.period
+        let unit: String
+        let value: Int
+        switch period.unit {
+        case .day:
+            unit = "day"; value = period.value
+        case .week:
+            if period.value == 1 { return "7-day free trial" }
+            unit = "week"; value = period.value
+        case .month:
+            unit = "month"; value = period.value
+        case .year:
+            unit = "year"; value = period.value
+        @unknown default:
+            return nil
+        }
+        return "\(value)-\(unit) free trial"
+    }
+
+    /// Short billing suffix for plan cards: "/yr", "/mo", "/wk", "/day".
+    func billingSuffix(for product: Product) -> String {
+        guard let period = product.subscription?.subscriptionPeriod else { return "" }
+        switch period.unit {
+        case .day: return "/day"
+        case .week: return "/wk"
+        case .month: return "/mo"
+        case .year: return "/yr"
+        @unknown default: return ""
+        }
+    }
+
+    /// Full billing period word for the disclosure line: "year", "month", …
+    func periodWord(for product: Product) -> String {
+        guard let period = product.subscription?.subscriptionPeriod else { return "" }
+        let base: String
+        switch period.unit {
+        case .day: base = "day"
+        case .week: base = "week"
+        case .month: base = "month"
+        case .year: base = "year"
+        @unknown default: return ""
+        }
+        return period.value > 1 ? "\(base)s" : base
+    }
+
+    /// Annual price per month (e.g. "$6.58/mo billed yearly") — computed from the real price.
+    func effectiveMonthlyText(for tier: SubscriptionTier) -> String? {
+        guard let product = product(for: tier, annual: true) else { return nil }
+        let monthly = product.price / 12
+        return "\(monthly.formatted(product.priceFormatStyle))/mo billed yearly"
+    }
+
+    /// Real savings vs buying Workouts + Nutrition separately at monthly prices.
+    func savingsText(for tier: SubscriptionTier) -> String? {
+        guard tier == .everything,
+              let workouts = product(for: .workouts, annual: false)?.price,
+              let nutrition = product(for: .nutrition, annual: false)?.price,
+              let everything = product(for: .everything, annual: false)?.price else { return nil }
+        let workoutsValue = NSDecimalNumber(decimal: workouts).doubleValue
+        let nutritionValue = NSDecimalNumber(decimal: nutrition).doubleValue
+        let everythingValue = NSDecimalNumber(decimal: everything).doubleValue
+        let combined = workoutsValue + nutritionValue
+        guard combined > 0 else { return nil }
+        let percent = Int(((combined - everythingValue) / combined * 100).rounded())
+        return percent > 0 ? "Save \(percent)% vs separate" : nil
     }
 
     // MARK: - Purchase
