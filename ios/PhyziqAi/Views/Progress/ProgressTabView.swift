@@ -135,8 +135,7 @@ struct ProgressTabView: View {
 
     private var goalProjectionCard: some View {
         Group {
-            if let weeks = appState.estimatedWeeksToGoal,
-               let goalDate = appState.estimatedGoalDate {
+            if let timeline = appState.goalTimeline {
                 VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
@@ -144,7 +143,7 @@ struct ProgressTabView: View {
                                 .font(.system(size: 11, weight: .black))
                                 .tracking(2)
                                 .foregroundStyle(Theme.accent)
-                            Text("When you'll get there")
+                            Text("How long it takes")
                                 .font(.system(size: 20, weight: .heavy))
                                 .foregroundStyle(Theme.textPrimary)
                         }
@@ -154,29 +153,29 @@ struct ProgressTabView: View {
                             .foregroundStyle(Theme.accent.opacity(0.7))
                     }
 
-                    HStack(spacing: 18) {
-                        VStack(spacing: 4) {
-                            Text("\(weeks)")
-                                .font(.system(size: 32, weight: .black, design: .rounded))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(timeline.headline)
+                            .font(.system(size: 30, weight: .black, design: .rounded))
+                            .foregroundStyle(Theme.accent)
+                        Text(timeline.subtitle)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+
+                    if timeline.isMultiYear {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "mountain.2.fill")
+                                .font(.system(size: 14, weight: .bold))
                                 .foregroundStyle(Theme.accent)
-                            Text("WEEKS LEFT")
-                                .font(.system(size: 9, weight: .black))
-                                .tracking(1)
+                            Text("This goal is a serious, multi-year build. Expect steady progress across many training cycles — re-scan every 4 weeks and watch it compound.")
+                                .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Theme.textSecondary)
+                                .lineSpacing(2)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
-                        Rectangle()
-                            .fill(Theme.hairline)
-                            .frame(width: 1, height: 44)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Estimated arrival")
-                                .font(.system(size: 11, weight: .bold))
-                                .tracking(1)
-                                .foregroundStyle(Theme.textSecondary)
-                            Text(goalDate.formatted(date: .abbreviated, time: .omitted))
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundStyle(Theme.textPrimary)
-                        }
-                        Spacer()
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Theme.accent.opacity(0.08)))
                     }
 
                     VStack(spacing: 8) {
@@ -195,13 +194,13 @@ struct ProgressTabView: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(Theme.textPrimary)
                             Spacer()
-                            Text("\(appState.weeksCompleted) of \(appState.weeksCompleted + weeks) weeks")
+                            Text("\(appState.weeksCompleted) of ~\(timeline.estimatedTotalWeeks) weeks")
                                 .font(.system(size: 12))
                                 .foregroundStyle(Theme.textSecondary)
                         }
                     }
 
-                    Text("Estimate based on your latest scan, training days, and experience. Re-scan every 4 weeks to sharpen it.")
+                    Text("An estimate, not a guarantee — results vary by person, genetics, and effort. Re-scan every 4 weeks to sharpen it.")
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.textSecondary.opacity(0.8))
                         .lineSpacing(2)

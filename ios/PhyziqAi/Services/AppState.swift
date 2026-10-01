@@ -1,6 +1,43 @@
 import Foundation
 import SwiftUI
 
+/// A realistic time range for reaching the goal physique, displayed as a range
+/// ("roughly 12–18 months") instead of an exact date. Small changes are a few
+/// months; large transformations scale to 1-3+ years.
+nonisolated struct GoalTimeline {
+    let lowerMonths: Int
+    let upperMonths: Int
+    /// Rough total training weeks implied by the timeline (drives the progress bar).
+    let estimatedTotalWeeks: Int
+    let isMultiYear: Bool
+
+    /// "4–7 months", "14–22 months", "2–3 years", "3+ years"
+    var rangeText: String {
+        if upperMonths >= 36 {
+            let lowerYears = max(2, Int((Double(lowerMonths) / 12).rounded(.down)))
+            return "\(lowerYears)+ years"
+        }
+        if isMultiYear {
+            let lowerYears = max(1, Int((Double(lowerMonths) / 12).rounded()))
+            let upperYears = max(lowerYears + 1, Int((Double(upperMonths) / 12).rounded(.up)))
+            return "\(lowerYears)–\(upperYears) years"
+        }
+        return "\(lowerMonths)–\(upperMonths) months"
+    }
+
+    var headline: String { "Roughly \(rangeText)" }
+
+    var subtitle: String {
+        if isMultiYear {
+            return "A transformation this size is a long-term, multi-year journey."
+        }
+        if upperMonths >= 12 {
+            return "of consistent training — a serious commitment"
+        }
+        return "of consistent training"
+    }
+}
+
 /// Central app state: profile, goal, scans, weekly progress, subscription.
 /// Persists everything as JSON in the app's Documents directory (on-device only).
 @Observable
@@ -113,41 +150,58 @@ final class AppState {
         return min(1, max(0, Double(done) / 4))
     }
 
-    /// Rough estimate of weeks remaining to close the gap to the goal physique.
-    /// Derived from the latest scan's gap priorities and training days per week.
-    var estimatedWeeksToGoal: Int? {
-        guard let analysis = latestAnalysis else { return nil }
-        guard let profile = profile else { return nil }
-        guard !analysis.gapToGoal.isEmpty else { return 0 }
+    /// Realistic, goal-scaled timeline to close the gap to the goal physique.
+    /// Small gaps = a few months; large transformations = 1-3+ years. Never
+    /// promises a dramatic change in weeks. Displayed as a range, not a date.
+    var goalTimeline: GoalTimeline? {
+        guard let profile = profile, let analysis = latestAnalysis else { return nil }
+
+        // No gaps reported — effectively at the goal already.
+        guard !analysis.gapToGoal.isEmpty else {
+            return GoalTimeline(lowerMonths: 2, upperMonths: 4, estimatedTotalWeeks: max(weeksCompleted, 8), isMultiYear: false)
+        }
 
         let maxPriority = analysis.gapToGoal.map { $0.priority.value }.max() ?? 1
-        let gapItems = analysis.gapToGoal.count
-        let gapScore = Double(maxPriority) + Double(gapItems) * 0.5
-        let baseWeeks = gapScore * 4.0
+        let gapScore = Double(maxPriority) + Double(analysis.gapToGoal.count) * 0.5
+        // How far the current physique sits from a fully developed look.
+        // A low physique score means real muscle still has to be built.
+        let overall = analysis.physiqueScore?.overall.value ?? 60
+        let scoreGap = max(0, (85.0 - Double(overall)) / 8.0)
+        var magnitude = max(gapScore, scoreGap)
+
+        // Stated goals add realistic time — building size is the slowest goal.
+        if profile.goalTags.contains(.muscleSize) { magnitude += 1.5 }
+        if profile.goalTags.contains(.recomposition) { magnitude += 0.5 }
+        if profile.goalTags.contains(.definition) { magnitude += 0.25 }
+        // A specific goal physique from reference photos implies a bigger transformation.
+        if target?.images.isEmpty == false { magnitude += 1.0 }
+
         let frequencyFactor = 4.0 / Double(max(profile.daysPerWeek, 2))
         let experienceFactor: Double
         switch profile.experience {
-        case .beginner: experienceFactor = 0.9
+        case .beginner: experienceFactor = 0.85 // fastest rate of muscle gain
         case .intermediate: experienceFactor = 1.0
-        case .advanced: experienceFactor = 1.15
+        case .advanced: experienceFactor = 1.2  // gains slow with training age
         }
-        let weeks = baseWeeks * frequencyFactor * experienceFactor
-        let remaining = max(0, Int(weeks.rounded()) - weeksCompleted)
-        return remaining
+
+        // Time grows superlinearly with the size of the goal: building the
+        // last chunks of muscle takes far longer than the first ones.
+        let months = min((1.6 * magnitude + 0.35 * magnitude * magnitude) * frequencyFactor * experienceFactor, 42)
+        let lower = max(3, Int((months * 0.75).rounded()))
+        let upper = max(lower + 2, min(42, Int((months * 1.35).rounded())))
+        return GoalTimeline(
+            lowerMonths: lower,
+            upperMonths: upper,
+            estimatedTotalWeeks: max(weeksCompleted + 4, Int((months * 4.345).rounded())),
+            isMultiYear: upper >= 24
+        )
     }
 
-    /// Estimated calendar date when the user will reach their goal, if a projection exists.
-    var estimatedGoalDate: Date? {
-        guard let weeks = estimatedWeeksToGoal else { return nil }
-        return Calendar.current.date(byAdding: .weekOfYear, value: weeks, to: Date())
-    }
-
-    /// Progress (0-1) toward the goal based on weeks completed vs. estimated total.
+    /// Progress (0-1) toward the goal based on weeks completed vs. the
+    /// estimated total from the goal timeline.
     var goalProgress: Double {
-        guard let weeks = estimatedWeeksToGoal else { return 0 }
-        let total = weeks + weeksCompleted
-        guard total > 0 else { return 0 }
-        return min(1, max(0, Double(weeksCompleted) / Double(total)))
+        guard let timeline = goalTimeline, timeline.estimatedTotalWeeks > 0 else { return 0 }
+        return min(1, max(0, Double(weeksCompleted) / Double(timeline.estimatedTotalWeeks)))
     }
 
     // MARK: - Actions

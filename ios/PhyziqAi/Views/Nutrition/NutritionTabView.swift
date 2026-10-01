@@ -10,6 +10,9 @@ struct NutritionTabView: View {
     @State private var showSurvey: Bool = false
     @State private var showPaywall: Bool = false
     @State private var showSources: Bool = false
+    /// AI-curated week (nil while loading or if AI failed — falls back to the generated plan).
+    @State private var aiWeek: [DailyMealPlan]?
+    @State private var aiLoading: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -274,7 +277,7 @@ struct NutritionTabView: View {
     private var planView: some View {
         Group {
             if let prefs = appState.nutritionPreferences {
-                let week = MealPlanGenerator.generateWeek(prefs: prefs, profile: appState.profile)
+                let week = aiWeek ?? MealPlanGenerator.generateWeek(prefs: prefs, profile: appState.profile)
                 let day = week[selectedDayIndex]
                 VStack(spacing: 0) {
                     if let daysLeft = appState.trialDaysLeft, appState.hasNutritionAccess {
@@ -297,10 +300,36 @@ struct NutritionTabView: View {
 
                     bottomBar
                 }
+                .task(id: AIMealPlanService.fingerprint(prefs: prefs, profile: appState.profile)) {
+                    await loadAIMealPlan(force: false)
+                }
             } else {
                 Text("No preferences saved.")
                     .foregroundStyle(Theme.textSecondary)
             }
+        }
+    }
+
+    /// Loads the AI-curated week: instant cache hit, otherwise generates.
+    /// On failure the deterministic generated plan stays visible (no error UI).
+    private func loadAIMealPlan(force: Bool) async {
+        guard let prefs = appState.nutritionPreferences else { return }
+        if !force, let week = AIMealPlanService.cachedWeek(prefs: prefs, profile: appState.profile) {
+            aiWeek = week
+            return
+        }
+        guard !aiLoading else { return }
+        aiLoading = true
+        defer { aiLoading = false }
+        if force {
+            AIMealPlanService.clearCache()
+            Haptics.impact(.medium)
+        }
+        do {
+            let days = try await AIMealPlanService.generateAndCache(prefs: prefs, profile: appState.profile)
+            withAnimation { aiWeek = days }
+        } catch {
+            print("[NutritionTab] AI meal plan unavailable, using generated plan: \(error.localizedDescription)")
         }
     }
 
@@ -317,6 +346,17 @@ struct NutritionTabView: View {
                         .foregroundStyle(Theme.textPrimary)
                 }
                 Spacer()
+                Button {
+                    Haptics.impact(.light)
+                    Task { await loadAIMealPlan(force: true) }
+                } label: {
+                    Image(systemName: aiLoading ? "hourglass" : "arrow.clockwise")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(Theme.surface))
+                }
+                .accessibilityLabel("Regenerate AI meal plan")
                 Button {
                     Haptics.impact(.light)
                     showSurvey = true
@@ -341,6 +381,25 @@ struct NutritionTabView: View {
                 Text("Calculated from your body stats, activity & goals")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.textSecondary)
+            }
+
+            if aiWeek != nil {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                    Text("AI-curated meals — realistic dishes built for your targets")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                }
+            } else if aiLoading {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Creating your AI meal plan…")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                }
             }
 
             HStack(spacing: 8) {

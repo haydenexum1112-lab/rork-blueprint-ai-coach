@@ -104,6 +104,12 @@ nonisolated enum AIService {
     - Include "alt" (an equivalent alternative for the same equipment tier) and 2-3 short form "cues" for every exercise.
     - The number of days must match the user's requested training days.
     - Choose a clear, recognizable split name such as "Push/Pull/Legs 5-day", "Upper/Lower 4-day", or "Full Body 3-day".
+
+    WORKOUT PLAN REQUIREMENTS — CRITICAL:
+    - Each training day MUST be a complete, real workout with 5-7 exercises, matched to the user's experience level in their context: exactly 5 exercises for a beginner, 6 for intermediate, 7 for advanced. NEVER fewer than 5 exercises on any day.
+    - Every exercise must target one of that day's "targets" muscle groups. Cover each target muscle fully: lead with 1-2 heavy compound movements, then fill the day with isolation and accessory movements until every target muscle is trained from multiple angles.
+    - No duplicate exercises within a day. Vary exercise selection across the week so each muscle gets different stimuli.
+    - Set and rep schemes must fit the movement: compounds 3-4 sets of 5-10 reps, isolations 3 sets of 10-15 reps.
     """
 
     /// Runs the full analysis. Returns the parsed result plus the raw JSON string.
@@ -145,7 +151,7 @@ nonisolated enum AIService {
 
         let body: [String: Any] = [
             "model": modelId,
-            "max_tokens": 8000,
+            "max_tokens": 12000,
             "temperature": 0.6,
             "stream": false,
             "messages": [
