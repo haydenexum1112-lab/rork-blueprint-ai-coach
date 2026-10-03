@@ -9,6 +9,7 @@ final class AuthManager {
     var isSigningIn: Bool = false
     var showError: Bool = false
     var errorMessage: String = ""
+    var lastSignInProvider: String?
 
     private let authURL = RuntimeConfig.rorkAuthURL
     private let appKey = RuntimeConfig.rorkAppKey
@@ -109,6 +110,7 @@ final class AuthManager {
     @MainActor
     func signIn(provider: String) async {
         isSigningIn = true
+        lastSignInProvider = provider
         defer { isSigningIn = false }
         do {
             let verifier = generateCodeVerifier()
@@ -164,8 +166,17 @@ final class AuthManager {
             return
         } catch AuthError.cancelledByUser {
             return
+        } catch let error as ASWebAuthenticationSessionError
+        where error.code == .presentationContextInvalid || error.code == .presentationContextNotProvided {
+            // The sheet couldn't present (no usable window — mainly an iPad
+            // scene-timing issue). Show a friendly retry message instead of
+            // Apple's raw error.
+            setError("We couldn't open the sign-in window. Please try again.")
+            print("[Auth] Presentation context error: \(error.code.rawValue)")
+        } catch AuthError.presentationUnavailable {
+            setError("We couldn't open the sign-in window. Please try again.")
         } catch {
-            setError(error.localizedDescription)
+            setError("Sign in failed. Please try again.\n\(error.localizedDescription)")
         }
     }
 
@@ -202,19 +213,33 @@ final class AuthManager {
     private func runWebAuthSession(authURL authURLString: String) async throws -> String {
         let callbackScheme = "rork-\(projectID)"
 
-        // ASWebAuthenticationSession.Error.presentationContextInvalid (code 3) means the
-        // window we handed to the session was not usable (e.g. app not yet active, or the
-        // anchor fallback produced an empty window). Wait for the app to become active
-        // with a valid window and retry once before giving up.
+        // On iPad — especially right after launch or during scene transitions —
+        // no window may be foreground-active yet. Starting the session without a
+        // real, visible window fails with `presentationContextInvalid` (error 3),
+        // so we always wait for a valid anchor before starting.
+        func waitForAnchor(seconds: Double) async -> Bool {
+            let deadline = Date().addingTimeInterval(seconds)
+            while Date() < deadline {
+                if WebAuthPresentationContext.hasValidAnchor { return true }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            return WebAuthPresentationContext.hasValidAnchor
+        }
+
+        guard await waitForAnchor(seconds: 5) else {
+            throw AuthError.presentationUnavailable
+        }
+
         do {
             return try await startWebAuthSession(url: URL(string: authURLString), callbackScheme: callbackScheme)
         } catch let error as ASWebAuthenticationSessionError
         where error.code == .presentationContextInvalid || error.code == .presentationContextNotProvided {
-            for _ in 0..<20 {
-                try? await Task.sleep(for: .milliseconds(250))
-                if WebAuthPresentationContext.hasValidAnchor { break }
+            // The window went away mid-flight (app backgrounded, scene teardown).
+            // Wait for a fresh anchor and retry once before surfacing the
+            // friendly retry error.
+            guard await waitForAnchor(seconds: 5) else {
+                throw AuthError.presentationUnavailable
             }
-            guard WebAuthPresentationContext.hasValidAnchor else { throw error }
             return try await startWebAuthSession(url: URL(string: authURLString), callbackScheme: callbackScheme)
         }
     }
@@ -367,6 +392,7 @@ enum AuthError: LocalizedError {
     case serverError(statusCode: Int)
     case popupTimeout
     case cancelledByUser
+    case presentationUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -375,6 +401,7 @@ enum AuthError: LocalizedError {
         case .serverError(let code): return "Server error (\(code))"
         case .popupTimeout: return "Sign-in timed out — please try again"
         case .cancelledByUser: return "Sign-in cancelled by user"
+        case .presentationUnavailable: return "We couldn't open the sign-in window. Please try again."
         }
     }
 }
@@ -390,31 +417,45 @@ class WebAuthPresentationContext: NSObject, ASWebAuthenticationPresentationConte
         !validWindows.isEmpty
     }
 
-    /// Foreground-active scene windows first (key window preferred), falling
-    /// back to ANY attached window. Never returns an empty `ASPresentationAnchor()`.
+    /// Foreground-active scene windows first (scene's keyWindow preferred), then
+    /// foreground-inactive scenes (common right after launch on iPad, where no
+    /// scene is active yet but its windows are visible and CAN present), then any
+    /// attached scene. Never returns an empty `ASPresentationAnchor()` from a
+    /// session start — `runWebAuthSession` refuses to start without a real window.
     @MainActor
     private static var validWindows: [UIWindow] {
-        let allScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let allWindows = allScenes.flatMap { $0.windows }.filter { !$0.isHidden }
-        let activeWindows = allScenes
-            .filter { $0.activationState == .foregroundActive }
-            .flatMap { $0.windows }
-            .filter { !$0.isHidden }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
 
-        // 1. Key window of a foreground-active scene.
-        if let key = activeWindows.first(where: { $0.isKeyWindow }) { return [key] }
-        // 2. Any window of a foreground-active scene.
-        if let first = activeWindows.first { return [first] }
-        // 3. Key window of any attached scene.
-        if let key = allWindows.first(where: { $0.isKeyWindow }) { return [key] }
-        // 4. Any attached window at all.
-        if let first = allWindows.first { return [first] }
+        // Prefer the scene's keyWindow, then its other visible windows.
+        func orderedWindows(of scene: UIWindowScene) -> [UIWindow] {
+            var ordered: [UIWindow] = []
+            if let key = scene.keyWindow { ordered.append(key) }
+            ordered.append(contentsOf: scene.windows.filter { !$0.isHidden && $0 !== scene.keyWindow })
+            return ordered
+        }
+
+        // 1. Foreground-active scene (normal case).
+        let active = scenes
+            .filter { $0.activationState == .foregroundActive }
+            .flatMap(orderedWindows)
+        if let first = active.first { return [first] }
+
+        // 2. Foreground-inactive scene (mid-activation on iPad).
+        let inactive = scenes
+            .filter { $0.activationState == .foregroundInactive }
+            .flatMap(orderedWindows)
+        if let first = inactive.first { return [first] }
+
+        // 3. Any attached scene with a visible window (last resort).
+        let any = scenes.flatMap(orderedWindows)
+        if let first = any.first { return [first] }
         return []
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         // Sessions are only started after `hasValidAnchor` confirms a live window,
-        // and we wait up to 5s for one on retry — so this should never fall through.
+        // and we wait up to 5s for one before starting and on retry — so this
+        // never hands back an unusable empty anchor in practice.
         Self.validWindows.first ?? ASPresentationAnchor()
     }
 }

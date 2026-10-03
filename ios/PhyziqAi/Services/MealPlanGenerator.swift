@@ -4,6 +4,11 @@ import Foundation
 /// user's body stats. Daily calories/macros come from
 /// `NutritionTargetsCalculator` (Mifflin-St Jeor + goal adjustment); each
 /// meal gets a proportional share and portion labels scale to match.
+///
+/// The plan is built from ALL foods the user is okay with (catalog minus
+/// disliked, allergen-blocked, and diet-blocked foods). Liked foods are
+/// prioritized — featured in about half the meal slots — but never limit
+/// the plan, so meals stay varied.
 enum MealPlanGenerator {
 
     static func generateWeek(prefs: NutritionPreferences, profile: UserProfile?) -> [DailyMealPlan] {
@@ -13,24 +18,26 @@ enum MealPlanGenerator {
         }
     }
 
-    static func generateDay(prefs: NutritionPreferences, profile: UserProfile?, dayName: String, dayIndex: Int) -> DailyMealPlan {
-        let targets = profile.map { NutritionTargetsCalculator.targets(for: $0) } ?? NutritionTargetsCalculator.fallback
-        let liked = foods(from: prefs.likedFoodIds)
+    /// Filtered food pools shared by the plan builder and the swap-alternatives
+    /// generator so both obey the same diet/allergen/dislike rules.
+    static func allowedFoods(prefs: NutritionPreferences) -> (all: [FoodItem], liked: [FoodItem]) {
         let dislikedIds = Set(prefs.dislikedFoodIds)
         let blockedTags = Set(prefs.allergens.flatMap { allergenTags(for: $0) })
         let customAllergensLower = prefs.customAllergens.map { $0.lowercased() }
 
-        let allowed = liked.isEmpty
-            ? FoodCatalog.items.filter { food in
-                !dislikedIds.contains(food.id) &&
-                !blockedByDiet(food, diet: prefs.dietStyle, allergens: blockedTags) &&
-                !blockedByCustomAllergens(food, custom: customAllergensLower)
-            }
-            : liked.filter { food in
-                !dislikedIds.contains(food.id) &&
-                !blockedByDiet(food, diet: prefs.dietStyle, allergens: blockedTags) &&
-                !blockedByCustomAllergens(food, custom: customAllergensLower)
-            }
+        let allowed = FoodCatalog.items.filter { food in
+            !dislikedIds.contains(food.id) &&
+            !blockedByDiet(food, diet: prefs.dietStyle, allergens: blockedTags) &&
+            !blockedByCustomAllergens(food, custom: customAllergensLower)
+        }
+        let likedIds = Set(prefs.likedFoodIds)
+        return (allowed, allowed.filter { likedIds.contains($0.id) })
+    }
+
+    static func generateDay(prefs: NutritionPreferences, profile: UserProfile?, dayName: String, dayIndex: Int) -> DailyMealPlan {
+        let targets = profile.map { NutritionTargetsCalculator.targets(for: $0) } ?? NutritionTargetsCalculator.fallback
+        let pools = allowedFoods(prefs: prefs)
+        let allowed = pools.all
 
         let proteinFoods = allowed.filter { $0.tags.contains("protein") }
         let carbFoods = allowed.filter { $0.tags.contains("carb") }.filter { _ in !lowCarbDiet(prefs.dietStyle) }
@@ -44,6 +51,7 @@ enum MealPlanGenerator {
             carbFoods: carbFoods,
             fatFoods: fatFoods,
             produceFoods: produceFoods,
+            likedFoods: pools.liked,
             dayIndex: dayIndex,
             dietStyle: prefs.dietStyle
         )
@@ -70,6 +78,7 @@ enum MealPlanGenerator {
         carbFoods: [FoodItem],
         fatFoods: [FoodItem],
         produceFoods: [FoodItem],
+        likedFoods: [FoodItem],
         dayIndex: Int,
         dietStyle: DietStyle
     ) -> [MealPlanEntry] {
@@ -105,69 +114,168 @@ enum MealPlanGenerator {
         let proteinShares = allocate(targets.proteinGrams, fractions: fractions)
         let isLowCarb = lowCarbDiet(dietStyle)
 
+        // Day-level dedupe: never serve the same food twice in one day.
+        var usedIds = Set<String>()
+
         for (i, name) in names.enumerated() {
-            let protein = pick(proteinFoods, offset: dayIndex + i, fallback: FoodItem(id: "eggs", name: "Eggs", emoji: "🥚", tags: ["protein"]))
-            let carb = pick(carbFoods.isEmpty ? produceFoods : carbFoods, offset: dayIndex + i + 1, fallback: FoodItem(id: "rice", name: "Rice", emoji: "🍚", tags: ["carb"]))
-            let produce = pick(produceFoods, offset: dayIndex + i + 2, fallback: FoodItem(id: "spinach", name: "Spinach", emoji: "🥬", tags: ["vegetable"]))
-            let fat = pick(fatFoods, offset: dayIndex + i + 3, fallback: FoodItem(id: "olive_oil", name: "Olive oil", emoji: "🫒", tags: ["fat"]))
-
-            let isBreakfast = i == 0
-            let isSnack = name == "Snack"
-
-            let title: String
-            if isSnack {
-                title = "\(protein.emoji) \(protein.name) & \(carb.emoji) \(carb.name)"
-            } else if isBreakfast {
-                title = "\(carb.emoji) \(carb.name) with \(protein.emoji) \(protein.name)"
-            } else {
-                title = "\(protein.emoji) \(protein.name) with \(carb.emoji) \(carb.name) & \(produce.emoji) \(produce.name)"
-            }
-
-            let template = templateMacros(isSnack: isSnack, isBreakfast: isBreakfast, lowCarb: isLowCarb)
-            let calories = calorieShares[i]
-            let proteinG = proteinShares[i]
-            // Fill remaining calories with carbs + fat, preserving the template's
-            // macro shape so keto/low-carb plans stay low-carb at any calorie level.
-            let remaining = max(calories - proteinG * 4, 0)
-            let baseRemaining = max(template.calories - template.protein * 4, 1)
-            let scale = Double(remaining) / Double(baseRemaining)
-            let carbsG = Int((Double(template.carbs) * scale).rounded())
-            let fatG = Int((Double(template.fat) * scale).rounded())
-
-            let items: [String]
-            if isSnack {
-                items = [
-                    "\(protein.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
-                    "\(carb.name) (\(servingLabel(scaleTo: calories, base: template.calories)))"
-                ]
-            } else if isBreakfast {
-                items = [
-                    "\(carb.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
-                    "\(protein.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
-                    "\(produce.name) (½ cup)"
-                ]
-            } else {
-                items = [
-                    "\(protein.name) (\(ounceLabel(scaleTo: calories, base: template.calories)))",
-                    "\(carb.name) (\(cupLabel(scaleTo: calories, base: template.calories)))",
-                    "\(produce.name) (1 cup)",
-                    "\(fat.name) (\(tbspLabel(scaleTo: calories, base: template.calories)))"
-                ]
-            }
-
-            meals.append(MealPlanEntry(
-                mealName: name,
+            // Feature the user's liked foods in about half the meal slots;
+            // the rest rotate through the full allowed pool for variety.
+            let meal = makeMeal(
+                name: name,
                 time: times[i],
-                title: title,
-                items: items,
-                calories: calories,
-                proteinGrams: proteinG,
-                carbsGrams: carbsG,
-                fatGrams: fatG
-            ))
+                calories: calorieShares[i],
+                proteinG: proteinShares[i],
+                isSnack: name == "Snack",
+                isBreakfast: i == 0,
+                lowCarb: isLowCarb,
+                proteinFoods: proteinFoods,
+                carbFoods: carbFoods,
+                fatFoods: fatFoods,
+                produceFoods: produceFoods,
+                likedFoods: likedFoods,
+                preferLiked: i % 2 == 1,
+                offset: dayIndex + i,
+                used: &usedIds
+            )
+            meals.append(meal)
         }
 
         return meals
+    }
+
+    /// Builds one meal entry for a slot. Shared by the week builder and the
+    /// swap-alternatives generator so alternatives follow the same rules and
+    /// portion-scaling as the main plan.
+    private static func makeMeal(
+        name: String,
+        time: String,
+        calories: Int,
+        proteinG: Int,
+        isSnack: Bool,
+        isBreakfast: Bool,
+        lowCarb: Bool,
+        proteinFoods: [FoodItem],
+        carbFoods: [FoodItem],
+        fatFoods: [FoodItem],
+        produceFoods: [FoodItem],
+        likedFoods: [FoodItem],
+        preferLiked: Bool,
+        offset: Int,
+        used: inout Set<String>
+    ) -> MealPlanEntry {
+        let template = templateMacros(isSnack: isSnack, isBreakfast: isBreakfast, lowCarb: lowCarb)
+        // Fill remaining calories with carbs + fat, preserving the template's
+        // macro shape so keto/low-carb plans stay low-carb at any calorie level.
+        let remaining = max(calories - proteinG * 4, 0)
+        let baseRemaining = max(template.calories - template.protein * 4, 1)
+        let scale = Double(remaining) / Double(baseRemaining)
+        let carbsG = Int((Double(template.carbs) * scale).rounded())
+        let fatG = Int((Double(template.fat) * scale).rounded())
+
+        let protein = pickPreferring(
+            likedFoods.filter { $0.tags.contains("protein") },
+            from: proteinFoods,
+            preferLiked: preferLiked,
+            offset: offset,
+            used: &used,
+            fallback: FoodItem(id: "eggs", name: "Eggs", emoji: "🥚", tags: ["protein"])
+        )
+        let carbPool = carbFoods.isEmpty ? produceFoods : carbFoods
+        let carb = pickPreferring(
+            likedFoods.filter { $0.tags.contains("carb") },
+            from: carbPool,
+            preferLiked: preferLiked,
+            offset: offset + 1,
+            used: &used,
+            fallback: FoodItem(id: "rice", name: "Rice", emoji: "🍚", tags: ["carb"])
+        )
+        let produce = pickPreferring(
+            likedFoods.filter { $0.tags.contains("vegetable") || $0.tags.contains("fruit") },
+            from: produceFoods,
+            preferLiked: preferLiked,
+            offset: offset + 2,
+            used: &used,
+            fallback: FoodItem(id: "spinach", name: "Spinach", emoji: "🥬", tags: ["vegetable"])
+        )
+        let fat = pickPreferring(
+            likedFoods.filter { $0.tags.contains("fat") },
+            from: fatFoods,
+            preferLiked: preferLiked,
+            offset: offset + 3,
+            used: &used,
+            fallback: FoodItem(id: "olive_oil", name: "Olive oil", emoji: "🫒", tags: ["fat"])
+        )
+
+        let title: String
+        if isSnack {
+            title = "\(protein.emoji) \(protein.name) & \(carb.emoji) \(carb.name)"
+        } else if isBreakfast {
+            title = "\(carb.emoji) \(carb.name) with \(protein.emoji) \(protein.name)"
+        } else {
+            title = "\(protein.emoji) \(protein.name) with \(carb.emoji) \(carb.name) & \(produce.emoji) \(produce.name)"
+        }
+
+        let items: [String]
+        if isSnack {
+            items = [
+                "\(protein.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
+                "\(carb.name) (\(servingLabel(scaleTo: calories, base: template.calories)))"
+            ]
+        } else if isBreakfast {
+            items = [
+                "\(carb.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
+                "\(protein.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
+                "\(produce.name) (½ cup)"
+            ]
+        } else {
+            items = [
+                "\(protein.name) (\(ounceLabel(scaleTo: calories, base: template.calories)))",
+                "\(carb.name) (\(cupLabel(scaleTo: calories, base: template.calories)))",
+                "\(produce.name) (1 cup)",
+                "\(fat.name) (\(tbspLabel(scaleTo: calories, base: template.calories)))"
+            ]
+        }
+
+        return MealPlanEntry(
+            mealName: name,
+            time: time,
+            title: title,
+            items: items,
+            calories: calories,
+            proteinGrams: proteinG,
+            carbsGrams: carbsG,
+            fatGrams: fatG
+        )
+    }
+
+    /// Picks the next unused food, prioritizing the user's liked foods when
+    /// `preferLiked` is true. Skips foods already served that day; only repeats
+    /// when the pool is exhausted. Falls back when the pool is empty.
+    private static func pickPreferring(
+        _ preferred: [FoodItem],
+        from pool: [FoodItem],
+        preferLiked: Bool,
+        offset: Int,
+        used: inout Set<String>,
+        fallback: FoodItem
+    ) -> FoodItem {
+        func nextUnused(_ items: [FoodItem]) -> FoodItem? {
+            guard !items.isEmpty else { return nil }
+            let start = ((offset % items.count) + items.count) % items.count
+            for step in 0..<items.count {
+                let candidate = items[(start + step) % items.count]
+                if !used.contains(candidate.id) { return candidate }
+            }
+            return items[start]
+        }
+
+        if preferLiked, let liked = nextUnused(preferred) {
+            used.insert(liked.id)
+            return liked
+        }
+        let chosen = nextUnused(pool) ?? fallback
+        used.insert(chosen.id)
+        return chosen
     }
 
     // MARK: - Template macros (shape used for scaling)
@@ -195,6 +303,60 @@ enum MealPlanGenerator {
                 ? TemplateMacros(calories: 580, protein: 46, carbs: 16, fat: 32)
                 : TemplateMacros(calories: 560, protein: 42, carbs: 52, fat: 18)
         }
+    }
+
+    // MARK: - Swap alternatives
+
+    /// 2–3 alternative meals with the same calories and macro shape as `meal`
+    /// for the meal-swap sheet. Same diet/allergen/disliked-food rules as the
+    /// main plan; only the food combination (and portions) change.
+    static func alternatives(for meal: MealPlanEntry, prefs: NutritionPreferences, profile: UserProfile?) -> [MealPlanEntry] {
+        let pools = allowedFoods(prefs: prefs)
+        let allowed = pools.all
+
+        let proteinFoods = allowed.filter { $0.tags.contains("protein") }
+        let carbFoods = allowed.filter { $0.tags.contains("carb") }.filter { _ in !lowCarbDiet(prefs.dietStyle) }
+        let fatFoods = allowed.filter { $0.tags.contains("fat") }
+        let produceFoods = allowed.filter { $0.tags.contains("vegetable") || $0.tags.contains("fruit") }
+
+        let isLowCarb = lowCarbDiet(prefs.dietStyle)
+        let isSnack = meal.mealName == "Snack"
+        let isBreakfast = meal.mealName == "Breakfast"
+
+        // Deterministic seed so the same meal always offers the same swaps.
+        var seed: Int = 0
+        for scalar in meal.title.unicodeScalars { seed = seed &* 31 &+ Int(scalar.value) }
+        seed = abs(seed)
+
+        var results: [MealPlanEntry] = []
+        var seenTitles: Set<String> = [meal.title]
+
+        var attempt = 0
+        while results.count < 3 && attempt < 15 {
+            var usedIds = Set<String>()
+            let candidate = makeMeal(
+                name: meal.mealName,
+                time: meal.time,
+                calories: meal.calories,
+                proteinG: meal.proteinGrams,
+                isSnack: isSnack,
+                isBreakfast: isBreakfast,
+                lowCarb: isLowCarb,
+                proteinFoods: proteinFoods,
+                carbFoods: carbFoods,
+                fatFoods: fatFoods,
+                produceFoods: produceFoods,
+                likedFoods: pools.liked,
+                preferLiked: attempt % 2 == 1,
+                offset: seed + attempt * 7,
+                used: &usedIds
+            )
+            if seenTitles.insert(candidate.title).inserted {
+                results.append(candidate)
+            }
+            attempt += 1
+        }
+        return results
     }
 
     // MARK: - Allocation & portion helpers
@@ -262,16 +424,7 @@ enum MealPlanGenerator {
         return "\(whole)\(fracSymbol)"
     }
 
-    // MARK: - Catalog filtering (unchanged)
-
-    private static func pick(_ items: [FoodItem], offset: Int, fallback: FoodItem) -> FoodItem {
-        guard !items.isEmpty else { return fallback }
-        return items[(offset % items.count + items.count) % items.count]
-    }
-
-    private static func foods(from ids: [String]) -> [FoodItem] {
-        FoodCatalog.items.filter { ids.contains($0.id) }
-    }
+    // MARK: - Catalog filtering
 
     private static func blockedByDiet(_ food: FoodItem, diet: DietStyle, allergens: Set<String>) -> Bool {
         if food.tags.contains(where: { allergens.contains($0) }) { return true }

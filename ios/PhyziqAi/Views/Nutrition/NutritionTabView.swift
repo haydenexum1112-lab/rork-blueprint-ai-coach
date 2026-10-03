@@ -13,6 +13,12 @@ struct NutritionTabView: View {
     /// AI-curated week (nil while loading or if AI failed — falls back to the generated plan).
     @State private var aiWeek: [DailyMealPlan]?
     @State private var aiLoading: Bool = false
+    /// Meal-swap sheet state (alternatives are computed when the sheet opens).
+    @State private var swapMeal: MealPlanEntry?
+    @State private var swapOptions: [MealPlanEntry] = []
+    /// In-memory swaps for the deterministic fallback plan (AI-week swaps are
+    /// persisted into the AI cache instead).
+    @State private var swappedDays: [Int: DailyMealPlan] = [:]
 
     var body: some View {
         NavigationStack {
@@ -51,6 +57,11 @@ struct NutritionTabView: View {
                 PaywallView()
                     .environment(appState)
                     .environment(store)
+            }
+            .sheet(item: $swapMeal) { meal in
+                MealSwapSheet(current: meal, alternatives: swapOptions) { replacement in
+                    applySwap(dayIndex: selectedDayIndex, from: meal, to: replacement)
+                }
             }
             .task {
                 await store.refreshIntroOfferEligibility()
@@ -277,7 +288,8 @@ struct NutritionTabView: View {
     private var planView: some View {
         Group {
             if let prefs = appState.nutritionPreferences {
-                let week = aiWeek ?? MealPlanGenerator.generateWeek(prefs: prefs, profile: appState.profile)
+                let baseWeek = aiWeek ?? MealPlanGenerator.generateWeek(prefs: prefs, profile: appState.profile)
+                let week = baseWeek.enumerated().map { index, day in swappedDays[index] ?? day }
                 let day = week[selectedDayIndex]
                 VStack(spacing: 0) {
                     if let daysLeft = appState.trialDaysLeft, appState.hasNutritionAccess {
@@ -316,6 +328,7 @@ struct NutritionTabView: View {
         guard let prefs = appState.nutritionPreferences else { return }
         if !force, let week = AIMealPlanService.cachedWeek(prefs: prefs, profile: appState.profile) {
             aiWeek = week
+            swappedDays = [:]
             return
         }
         guard !aiLoading else { return }
@@ -327,10 +340,63 @@ struct NutritionTabView: View {
         }
         do {
             let days = try await AIMealPlanService.generateAndCache(prefs: prefs, profile: appState.profile)
-            withAnimation { aiWeek = days }
+            withAnimation {
+                aiWeek = days
+                swappedDays = [:]
+            }
         } catch {
             print("[NutritionTab] AI meal plan unavailable, using generated plan: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Meal swap
+
+    private func openSwap(for meal: MealPlanEntry) {
+        guard let prefs = appState.nutritionPreferences else { return }
+        swapOptions = MealPlanGenerator.alternatives(for: meal, prefs: prefs, profile: appState.profile)
+        swapMeal = meal
+    }
+
+    /// Replaces a meal in the visible week with a swapped alternative and
+    /// recomputes the day's totals. AI-week swaps are also persisted into the
+    /// AI cache so the calendar and quick-add surfaces match.
+    private func applySwap(dayIndex: Int, from oldMeal: MealPlanEntry, to replacement: MealPlanEntry) {
+        guard let prefs = appState.nutritionPreferences else { return }
+
+        func rebuildDay(_ day: DailyMealPlan, meals: [MealPlanEntry]) -> DailyMealPlan {
+            DailyMealPlan(
+                id: day.id,
+                dayName: day.dayName,
+                meals: meals,
+                totalCalories: meals.reduce(0) { $0 + $1.calories },
+                totalProtein: meals.reduce(0) { $0 + $1.proteinGrams },
+                totalCarbs: meals.reduce(0) { $0 + $1.carbsGrams },
+                totalFat: meals.reduce(0) { $0 + $1.fatGrams }
+            )
+        }
+
+        if var week = aiWeek, week.indices.contains(dayIndex),
+           let idx = week[dayIndex].meals.firstIndex(where: { $0.id == oldMeal.id }) {
+            var meals = week[dayIndex].meals
+            meals[idx] = replacement
+            week[dayIndex] = rebuildDay(week[dayIndex], meals: meals)
+            withAnimation { aiWeek = week }
+        } else {
+            var week = MealPlanGenerator.generateWeek(prefs: prefs, profile: appState.profile)
+            guard week.indices.contains(dayIndex),
+                  let idx = week[dayIndex].meals.firstIndex(where: { $0.id == oldMeal.id }) else { return }
+            var meals = week[dayIndex].meals
+            meals[idx] = replacement
+            withAnimation { swappedDays[dayIndex] = rebuildDay(week[dayIndex], meals: meals) }
+        }
+
+        _ = AIMealPlanService.persistMealSwap(
+            prefs: prefs,
+            profile: appState.profile,
+            dayIndex: dayIndex,
+            mealID: oldMeal.id,
+            with: replacement
+        )
     }
 
     private func summaryCard(day: DailyMealPlan, prefs: NutritionPreferences) -> some View {
@@ -514,6 +580,17 @@ struct NutritionTabView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
+                Button {
+                    Haptics.impact(.light)
+                    openSwap(for: meal)
+                } label: {
+                    Image(systemName: "arrow.2.squarepath")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Theme.accent.opacity(0.12)))
+                }
+                .accessibilityLabel("Swap this meal for an alternative")
                 Text(meal.time)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Theme.textSecondary)
@@ -603,5 +680,109 @@ struct NutritionTabView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .background(Theme.bg.opacity(0.95))
+    }
+}
+
+/// Meal-swap sheet: shows 2–3 alternative meals with the same calories and
+/// macro shape as the current meal; picking one replaces it in the plan.
+private struct MealSwapSheet: View {
+    let current: MealPlanEntry
+    let alternatives: [MealPlanEntry]
+    let onPick: (MealPlanEntry) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("CURRENT MEAL")
+                            .font(.system(size: 11, weight: .black))
+                            .tracking(2)
+                            .foregroundStyle(Theme.textSecondary)
+                        Text(current.title)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Theme.textPrimary)
+                        Text("\(current.calories) kcal · \(current.proteinGrams)g protein")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.cardRadius)
+                            .fill(Theme.surface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Theme.cardRadius)
+                                    .strokeBorder(Theme.hairline, lineWidth: 1)
+                            )
+                    )
+
+                    Text("Pick a swap with the same calories and macros — it still follows your diet, allergens, and dislikes.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineSpacing(2)
+
+                    ForEach(alternatives) { option in
+                        Button {
+                            Haptics.impact(.medium)
+                            onPick(option)
+                            dismiss()
+                        } label: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(option.title)
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .multilineTextAlignment(.leading)
+                                Text(option.items.prefix(2).joined(separator: " · "))
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Theme.textSecondary)
+                                    .multilineTextAlignment(.leading)
+                                    .lineLimit(2)
+                                HStack(spacing: 14) {
+                                    macroChip(value: "\(option.calories)", label: "kcal")
+                                    macroChip(value: "\(option.proteinGrams)g", label: "P")
+                                    macroChip(value: "\(option.carbsGrams)g", label: "C")
+                                    macroChip(value: "\(option.fatGrams)g", label: "F")
+                                    Spacer()
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundStyle(Theme.accent)
+                                }
+                            }
+                            .padding(16)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                RoundedRectangle(cornerRadius: Theme.cardRadius)
+                                    .fill(Theme.surface)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: Theme.cardRadius)
+                                            .strokeBorder(Theme.accent.opacity(0.25), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .accessibilityLabel("Swap to \(option.title)")
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+            }
+            .scrollIndicators(.hidden)
+            .navigationTitle("Swap meal")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+        .presentationContentInteraction(.scrolls)
+    }
+
+    private func macroChip(value: String, label: String) -> some View {
+        HStack(spacing: 3) {
+            Text(value)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(Theme.textPrimary)
+            Text(label)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Theme.textSecondary)
+        }
     }
 }

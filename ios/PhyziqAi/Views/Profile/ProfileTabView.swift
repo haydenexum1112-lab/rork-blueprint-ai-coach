@@ -84,7 +84,12 @@ struct ProfileTabView: View {
                 Text("This permanently deletes your account, signs you out, and removes all scans, photos, and progress from this device. This cannot be undone.")
             }
             .alert("Sign in error", isPresented: $auth.showError) {
-                Button("OK") {}
+                if let provider = auth.lastSignInProvider {
+                    Button("Try Again") {
+                        Task { await auth.signIn(provider: provider) }
+                    }
+                }
+                Button("OK", role: .cancel) {}
             } message: {
                 Text(auth.errorMessage)
             }

@@ -35,7 +35,7 @@ nonisolated enum AIMealPlanService {
     static let modelId = "openai/gpt-4o"
 
     private static let cacheFileName = "meal_plan_ai.json"
-    private static let schemaVersion = 2
+    private static let schemaVersion = 3
     private static let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
     // MARK: - Public API
@@ -68,6 +68,33 @@ nonisolated enum AIMealPlanService {
     /// Drops the cached week (used by "Regenerate").
     static func clearCache() {
         try? FileManager.default.removeItem(at: cacheURL)
+    }
+
+    /// Replaces a meal in the cached AI week (used by the meal-swap sheet) and
+    /// recomputes the day's totals. Returns false when there is no fresh cache
+    /// (deterministic fallback plans swap in-memory only).
+    static func persistMealSwap(prefs: NutritionPreferences, profile: UserProfile?, dayIndex: Int, mealID: UUID, with replacement: MealPlanEntry) -> Bool {
+        guard var cached = loadCache(),
+              cached.fingerprint == fingerprint(prefs: prefs, profile: profile),
+              cached.days.indices.contains(dayIndex),
+              let mealIndex = cached.days[dayIndex].meals.firstIndex(where: { $0.id == mealID })
+        else { return false }
+
+        let day = cached.days[dayIndex]
+        var meals = day.meals
+        meals[mealIndex] = replacement
+        let updated = DailyMealPlan(
+            id: day.id,
+            dayName: day.dayName,
+            meals: meals,
+            totalCalories: meals.reduce(0) { $0 + $1.calories },
+            totalProtein: meals.reduce(0) { $0 + $1.proteinGrams },
+            totalCarbs: meals.reduce(0) { $0 + $1.carbsGrams },
+            totalFat: meals.reduce(0) { $0 + $1.fatGrams }
+        )
+        cached.days[dayIndex] = updated
+        saveCache(cached)
+        return true
     }
 
     /// Best available plan day: cached AI day if fresh, else the deterministic
@@ -129,7 +156,7 @@ nonisolated enum AIMealPlanService {
     - Strictly respect the user's diet style. Never include excluded ingredient groups.
     - NEVER include any listed allergen, in any form (check sauces, batters, oils, garnishes).
     - NEVER include disliked foods anywhere in the plan.
-    - Feature the user's liked foods often — they chose them.
+    - Build meals from the FULL range of foods that fit the user's diet, allergens, and dislikes — do NOT restrict the plan to their liked foods. Feature the user's liked foods regularly (roughly a third of meals), but draw the rest from everything else they can eat so the week stays varied.
     - Every meal must contain a meaningful protein source appropriate to the diet.
 
     OUTPUT: Respond with ONLY a single valid JSON object. No markdown, no code fences, no commentary.
@@ -188,7 +215,7 @@ nonisolated enum AIMealPlanService {
 
         \(restrictions.isEmpty ? "" : "RESTRICTIONS:\n- " + restrictions.joined(separator: "\n- "))
 
-        LIKED FOODS (feature these often): \(likedNames.isEmpty ? "no strong preferences" : likedNames.joined(separator: ", "))
+        LIKED FOODS (feature these regularly — about a third of meals — but never limit the plan to them; build the rest from any compatible foods): \(likedNames.isEmpty ? "no strong preferences" : likedNames.joined(separator: ", "))
 
         MEALS PER DAY, in this exact order: \(mealNames.joined(separator: ", "))
 
