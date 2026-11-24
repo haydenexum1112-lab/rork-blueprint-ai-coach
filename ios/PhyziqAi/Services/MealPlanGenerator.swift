@@ -120,13 +120,13 @@ enum MealPlanGenerator {
         for (i, name) in names.enumerated() {
             // Feature the user's liked foods in about half the meal slots;
             // the rest rotate through the full allowed pool for variety.
+            let slot: MealSlot = name == "Breakfast" ? .breakfast : (name == "Snack" ? .snack : .main)
             let meal = makeMeal(
                 name: name,
                 time: times[i],
                 calories: calorieShares[i],
                 proteinG: proteinShares[i],
-                isSnack: name == "Snack",
-                isBreakfast: i == 0,
+                slot: slot,
                 lowCarb: isLowCarb,
                 proteinFoods: proteinFoods,
                 carbFoods: carbFoods,
@@ -151,8 +151,7 @@ enum MealPlanGenerator {
         time: String,
         calories: Int,
         proteinG: Int,
-        isSnack: Bool,
-        isBreakfast: Bool,
+        slot: MealSlot,
         lowCarb: Bool,
         proteinFoods: [FoodItem],
         carbFoods: [FoodItem],
@@ -163,6 +162,8 @@ enum MealPlanGenerator {
         offset: Int,
         used: inout Set<String>
     ) -> MealPlanEntry {
+        let isSnack = slot == .snack
+        let isBreakfast = slot == .breakfast
         let template = templateMacros(isSnack: isSnack, isBreakfast: isBreakfast, lowCarb: lowCarb)
         // Fill remaining calories with carbs + fat, preserving the template's
         // macro shape so keto/low-carb plans stay low-carb at any calorie level.
@@ -172,38 +173,90 @@ enum MealPlanGenerator {
         let carbsG = Int((Double(template.carbs) * scale).rounded())
         let fatG = Int((Double(template.fat) * scale).rounded())
 
+        // Slot-specific eligibility: a breakfast slot only draws from
+        // breakfast foods, snacks only from snack foods, and lunch/dinner
+        // only from proper main-meal foods — so yogurt never becomes dinner.
+        var proteinIds: Set<String>
+        var carbIds: Set<String>
+        var produceIds: Set<String>
+        var fatIds: Set<String>
+        var produceTags: Set<String>
+        var carbTags: Set<String>
+        var carbSource: [FoodItem]
+        var fallbackProtein: FoodItem
+        var fallbackCarb: FoodItem
+        var fallbackProduce: FoodItem
+        var fallbackFat: FoodItem
+        switch slot {
+        case .breakfast:
+            proteinIds = breakfastProteinIds
+            carbIds = breakfastCarbIds
+            produceIds = breakfastProduceIds
+            fatIds = breakfastFatIds
+            produceTags = ["fruit", "vegetable"]
+            carbTags = ["carb", "fruit"]
+            carbSource = carbFoods + produceFoods
+            fallbackProtein = FoodItem(id: "eggs", name: "Eggs", emoji: "🥚", tags: ["protein"])
+            fallbackCarb = FoodItem(id: "oats", name: "Oats", emoji: "🥣", tags: ["carb"])
+            fallbackProduce = FoodItem(id: "berries", name: "Berries", emoji: "🫐", tags: ["fruit"])
+            fallbackFat = FoodItem(id: "avocado", name: "Avocado", emoji: "🥑", tags: ["fat"])
+        case .main:
+            proteinIds = mainProteinIds
+            carbIds = []
+            produceIds = []
+            fatIds = []
+            produceTags = ["vegetable"]
+            carbTags = ["carb"]
+            carbSource = carbFoods
+            fallbackProtein = FoodItem(id: "chicken", name: "Chicken", emoji: "🍗", tags: ["meat", "protein"])
+            fallbackCarb = FoodItem(id: "rice", name: "Rice", emoji: "🍚", tags: ["carb"])
+            fallbackProduce = FoodItem(id: "spinach", name: "Spinach", emoji: "🥬", tags: ["vegetable"])
+            fallbackFat = FoodItem(id: "olive_oil", name: "Olive oil", emoji: "🫒", tags: ["fat"])
+        case .snack:
+            proteinIds = snackProteinIds
+            carbIds = snackCarbIds
+            produceIds = []
+            fatIds = snackFatIds
+            produceTags = ["fruit"]
+            carbTags = ["carb", "fruit"]
+            carbSource = carbFoods + produceFoods
+            fallbackProtein = FoodItem(id: "greek_yogurt", name: "Greek yogurt", emoji: "🥛", tags: ["dairy", "protein"])
+            fallbackCarb = FoodItem(id: "banana", name: "Banana", emoji: "🍌", tags: ["fruit"])
+            fallbackProduce = FoodItem(id: "apple", name: "Apple", emoji: "🍎", tags: ["fruit"])
+            fallbackFat = FoodItem(id: "nuts", name: "Mixed nuts", emoji: "🥜", tags: ["nuts", "fat"])
+        }
+
         let protein = pickPreferring(
-            likedFoods.filter { $0.tags.contains("protein") },
-            from: proteinFoods,
+            slotPool(likedFoods.filter { $0.tags.contains("protein") }, ids: proteinIds),
+            from: slotPool(proteinFoods, ids: proteinIds),
             preferLiked: preferLiked,
             offset: offset,
             used: &used,
-            fallback: FoodItem(id: "eggs", name: "Eggs", emoji: "🥚", tags: ["protein"])
+            fallback: fallbackProtein
         )
-        let carbPool = carbFoods.isEmpty ? produceFoods : carbFoods
         let carb = pickPreferring(
-            likedFoods.filter { $0.tags.contains("carb") },
-            from: carbPool,
+            slotPool(likedFoods.filter { $0.tags.contains(where: carbTags.contains) }, ids: carbIds),
+            from: slotPool(carbSource, ids: carbIds),
             preferLiked: preferLiked,
             offset: offset + 1,
             used: &used,
-            fallback: FoodItem(id: "rice", name: "Rice", emoji: "🍚", tags: ["carb"])
+            fallback: fallbackCarb
         )
         let produce = pickPreferring(
-            likedFoods.filter { $0.tags.contains("vegetable") || $0.tags.contains("fruit") },
-            from: produceFoods,
+            slotPool(likedFoods.filter { $0.tags.contains(where: produceTags.contains) }, ids: produceIds),
+            from: slotPool(produceFoods.filter { $0.tags.contains(where: produceTags.contains) }, ids: produceIds),
             preferLiked: preferLiked,
             offset: offset + 2,
             used: &used,
-            fallback: FoodItem(id: "spinach", name: "Spinach", emoji: "🥬", tags: ["vegetable"])
+            fallback: fallbackProduce
         )
         let fat = pickPreferring(
-            likedFoods.filter { $0.tags.contains("fat") },
-            from: fatFoods,
+            slotPool(likedFoods.filter { $0.tags.contains("fat") }, ids: fatIds),
+            from: slotPool(fatFoods, ids: fatIds),
             preferLiked: preferLiked,
             offset: offset + 3,
             used: &used,
-            fallback: FoodItem(id: "olive_oil", name: "Olive oil", emoji: "🫒", tags: ["fat"])
+            fallback: fallbackFat
         )
 
         let title: String
@@ -219,7 +272,8 @@ enum MealPlanGenerator {
         if isSnack {
             items = [
                 "\(protein.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
-                "\(carb.name) (\(servingLabel(scaleTo: calories, base: template.calories)))"
+                "\(carb.name) (\(servingLabel(scaleTo: calories, base: template.calories)))",
+                "\(fat.name) (small serving)",
             ]
         } else if isBreakfast {
             items = [
@@ -320,8 +374,7 @@ enum MealPlanGenerator {
         let produceFoods = allowed.filter { $0.tags.contains("vegetable") || $0.tags.contains("fruit") }
 
         let isLowCarb = lowCarbDiet(prefs.dietStyle)
-        let isSnack = meal.mealName == "Snack"
-        let isBreakfast = meal.mealName == "Breakfast"
+        let slot: MealSlot = meal.mealName == "Breakfast" ? .breakfast : (meal.mealName == "Snack" ? .snack : .main)
 
         // Deterministic seed so the same meal always offers the same swaps.
         var seed: Int = 0
@@ -339,8 +392,7 @@ enum MealPlanGenerator {
                 time: meal.time,
                 calories: meal.calories,
                 proteinG: meal.proteinGrams,
-                isSnack: isSnack,
-                isBreakfast: isBreakfast,
+                slot: slot,
                 lowCarb: isLowCarb,
                 proteinFoods: proteinFoods,
                 carbFoods: carbFoods,
@@ -357,6 +409,38 @@ enum MealPlanGenerator {
             attempt += 1
         }
         return results
+    }
+
+    // MARK: - Meal slots
+
+    /// Time-of-day slot for a meal; drives which foods are eligible so
+    /// breakfast and snack foods never land in main meals (and vice versa).
+    enum MealSlot {
+        case breakfast, main, snack
+    }
+
+    // Catalog food ids appropriate for each slot. Used as an intersection
+    // with the diet/allergen-filtered pools; a slot whose pool empties after
+    // filtering falls back to the full pool so restricted diets still get
+    // complete meals.
+    private static let breakfastProteinIds: Set<String> = ["eggs", "greek_yogurt", "cottage_cheese", "tofu"]
+    private static let mainProteinIds: Set<String> = ["chicken", "beef", "salmon", "tuna", "shrimp", "tofu", "beans", "lentils"]
+    private static let snackProteinIds: Set<String> = ["greek_yogurt", "cottage_cheese", "eggs"]
+
+    private static let breakfastCarbIds: Set<String> = ["oats", "bread", "quinoa", "sweet_potato"]
+    private static let snackCarbIds: Set<String> = ["berries", "banana", "apple"]
+
+    private static let breakfastProduceIds: Set<String> = ["berries", "banana", "apple", "spinach"]
+    private static let breakfastFatIds: Set<String> = ["avocado", "nuts"]
+    private static let snackFatIds: Set<String> = ["nuts", "avocado"]
+
+    /// Slot-filtered subset of a pool. An empty id set means "no extra
+    /// restriction"; if the id-filtered pool empties (diet/allergen rules),
+    /// the full pool is used so the slot never runs out of food.
+    private static func slotPool(_ pool: [FoodItem], ids: Set<String>) -> [FoodItem] {
+        guard !ids.isEmpty else { return pool }
+        let filtered = pool.filter { ids.contains($0.id) }
+        return filtered.isEmpty ? pool : filtered
     }
 
     // MARK: - Allocation & portion helpers

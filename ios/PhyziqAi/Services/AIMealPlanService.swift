@@ -35,7 +35,7 @@ nonisolated enum AIMealPlanService {
     static let modelId = "openai/gpt-4o"
 
     private static let cacheFileName = "meal_plan_ai.json"
-    private static let schemaVersion = 3
+    private static let schemaVersion = 4
     private static let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
     // MARK: - Public API
@@ -145,8 +145,11 @@ nonisolated enum AIMealPlanService {
 
     REALISM RULES — MOST IMPORTANT:
     - Every meal must be a coherent, culturally normal combination that people genuinely eat — a real dish, not a random assortment of foods.
-    - Breakfast must be breakfast foods (eggs, oatmeal, yogurt, toast, smoothies, pancakes...). Lunch and dinner must be typical meals people cook or order. Snacks must be actual snacks (protein shake, fruit + nuts, cottage cheese, hummus + veggies...).
-    - NEVER pair foods that don't belong together (no "pasta and apple" for breakfast, no "eggs with rice and banana" for dinner).
+    - SLOT RULES — the meal's slot is stated in the request (Breakfast, Lunch, Dinner, or Snack). The meal MUST fit its slot:
+      • BREAKFAST: breakfast foods only (eggs, omelettes, oatmeal, yogurt bowls, protein pancakes, toast, smoothies, fruit). Never a lunch or dinner dish.
+      • LUNCH & DINNER: a proper main meal someone would actually eat at that time — a protein center (chicken, beef, fish, shrimp, tofu, legumes) with real sides (rice, potatoes, pasta, quinoa, vegetables, salad). NEVER breakfast or snack foods at these slots: no yogurt, cottage cheese, cereal, oatmeal, granola, smoothies, or pancakes.
+      • SNACK: snack foods only (Greek yogurt, cottage cheese, nuts, fruit, protein shake or bar, hummus + veggies). Never a full cooked meal.
+    - NEVER pair foods that don't belong together (no "pasta and apple" for breakfast, no "eggs with rice and banana" for dinner, no "yogurt" as dinner).
     - Vary the meals across the week: no repeated dinners, no repeated lunches; breakfasts may repeat at most twice.
     - Portion sizes must be realistic for the calorie target — if the target is low, use smaller portions and lighter cooking methods; if high, use larger portions and calorie-dense additions.
     - Respect the user's cooking time: "Under 15 min" means simple meals with few components; "30+ min" allows proper cooked meals.
@@ -217,7 +220,7 @@ nonisolated enum AIMealPlanService {
 
         LIKED FOODS (feature these regularly — about a third of meals — but never limit the plan to them; build the rest from any compatible foods): \(likedNames.isEmpty ? "no strong preferences" : likedNames.joined(separator: ", "))
 
-        MEALS PER DAY, in this exact order: \(mealNames.joined(separator: ", "))
+        MEALS PER DAY, in this exact order — each meal is labeled with its slot and MUST fit that slot: \(mealNames.map { "\($0) (\(slotHint(for: $0)))" }.joined(separator: ", "))
 
         COOKING TIME: \(prefs.cookingTime.display) per meal — \(prefs.cookingTime.subtitle).
 
@@ -372,6 +375,17 @@ nonisolated enum AIMealPlanService {
         case .three: return ["Breakfast", "Lunch", "Dinner"]
         case .four: return ["Breakfast", "Lunch", "Snack", "Dinner"]
         case .five: return ["Breakfast", "Snack", "Lunch", "Snack", "Dinner"]
+        }
+    }
+
+    /// Slot description shown next to each meal name in the AI prompt so the
+    /// model knows exactly which time-of-day slot it is filling.
+    private static func slotHint(for mealName: String) -> String {
+        switch mealName {
+        case "Breakfast": return "breakfast foods only"
+        case "Lunch": return "proper main meal — protein center + sides"
+        case "Dinner": return "proper main meal — protein center + sides"
+        default: return "snack foods only"
         }
     }
 

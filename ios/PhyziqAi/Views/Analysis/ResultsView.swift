@@ -8,6 +8,15 @@ struct ResultsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var scoreAnimation: Double = 0
+    @State private var challengeMode = false
+    @State private var showShareDialog = false
+    @State private var shareCard: ShareCard? = nil
+
+    struct ShareCard: Identifiable {
+        let id = UUID()
+        let image: UIImage
+        let text: String
+    }
 
     var body: some View {
         ZStack {
@@ -19,6 +28,7 @@ struct ResultsView: View {
                         if let score = analysis.physiqueScore {
                             scoreHeroSection(analysis, score: score)
                             regionBreakdownSection(score)
+                            shareSection(score)
                         }
                         summarySection(analysis)
                         strengthsSection(analysis)
@@ -62,6 +72,22 @@ struct ResultsView: View {
                 .padding(.trailing, 20)
                 .padding(.top, 12)
             }
+        }
+        .confirmationDialog(
+            challengeMode ? "Challenge a friend" : "Share scorecard",
+            isPresented: $showShareDialog,
+            titleVisibility: .visible
+        ) {
+            Button("Show my score on the card") {
+                share(hideScore: false)
+            }
+            Button("Hide my score — they have to scan to see it") {
+                share(hideScore: true)
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .sheet(item: $shareCard) { card in
+            ActivityShareSheet(items: [card.image, card.text])
         }
         .onAppear {
             if scan.analysis?.physiqueScore != nil {
@@ -185,6 +211,84 @@ struct ResultsView: View {
         if value >= 75 { return Theme.accent }
         if value >= 50 { return Theme.accent.opacity(0.7) }
         return Theme.warning
+    }
+
+    // MARK: - Share scorecard
+
+    private func shareSection(_ score: PhysiqueScore) -> some View {
+        VStack(spacing: 12) {
+            Button {
+                Haptics.impact(.light)
+                challengeMode = false
+                showShareDialog = true
+            } label: {
+                Label("Share my score", systemImage: "square.and.arrow.up")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Theme.accent)
+                    )
+            }
+            .accessibilityLabel("Share my physique score as an image")
+
+            Button {
+                Haptics.impact(.light)
+                challengeMode = true
+                showShareDialog = true
+            } label: {
+                Label("Challenge a friend to beat your score", systemImage: "flag.2.crossed")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Theme.surface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(Theme.accent.opacity(0.45), lineWidth: 1.5)
+                            )
+                    )
+            }
+            .accessibilityLabel("Challenge a friend to beat your physique score")
+        }
+    }
+
+    /// Renders the branded story card and opens the native share sheet.
+    private func share(hideScore: Bool) {
+        guard let analysis = scan.analysis,
+              let score = analysis.physiqueScore else { return }
+
+        // Top 3 muscle ratings by score for the card's bars.
+        let regions = score.byRegion
+            .map { (name: $0.key, value: $0.value.value) }
+            .sorted { $0.value > $1.value }
+
+        let image = ScorecardRenderer.render(
+            ScorecardRenderer.Content(
+                score: score.overall.value,
+                regions: regions,
+                hideScore: hideScore,
+                challenge: challengeMode
+            )
+        )
+
+        let text: String
+        switch (challengeMode, hideScore) {
+        case (false, false):
+            text = "I scored \(score.overall.value)/100 on my physique scan 💪 Scan yours at PhyziqAi!"
+        case (false, true):
+            text = "I just got my physique score on PhyziqAi 👀 Scan yours to see if you can beat me!"
+        case (true, false):
+            text = "I scored \(score.overall.value)/100 on my physique scan. Think you can beat it? 💪 Download PhyziqAi and scan yours!"
+        case (true, true):
+            text = "I just scanned my physique and I'm challenging you to beat my score 💪 Download PhyziqAi and scan yours to see who wins!"
+        }
+
+        shareCard = ShareCard(image: image, text: text)
     }
 
     // MARK: - Summary
@@ -347,4 +451,15 @@ struct SectionHeader: View {
                 .foregroundStyle(Theme.textPrimary)
         }
     }
+}
+
+/// Native iOS share sheet for the generated scorecard image + caption.
+struct ActivityShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
